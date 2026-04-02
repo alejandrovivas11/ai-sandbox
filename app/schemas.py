@@ -1,5 +1,6 @@
+from __future__ import annotations
+
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -12,17 +13,17 @@ class PatientCreate(BaseModel):
     password: str = Field(..., min_length=8)
     first_name: str
     last_name: str
-    date_of_birth: Optional[date] = None
-    phone_number: Optional[str] = None
-    address: Optional[str] = None
+    date_of_birth: date | None = None
+    phone_number: str | None = None
+    address: str | None = None
 
 
 class PatientUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    date_of_birth: Optional[date] = None
-    phone_number: Optional[str] = None
-    address: Optional[str] = None
+    first_name: str | None = None
+    last_name: str | None = None
+    date_of_birth: date | None = None
+    phone_number: str | None = None
+    address: str | None = None
 
 
 class PatientResponse(BaseModel):
@@ -32,9 +33,9 @@ class PatientResponse(BaseModel):
     email: str
     first_name: str
     last_name: str
-    date_of_birth: Optional[date] = None
-    phone_number: Optional[str] = None
-    address: Optional[str] = None
+    date_of_birth: date | None = None
+    phone_number: str | None = None
+    address: str | None = None
     created_at: datetime
 
 
@@ -44,22 +45,28 @@ class PatientResponse(BaseModel):
 class AppointmentCreate(BaseModel):
     appointment_date: datetime
     reason: str
-    notes: Optional[str] = None
+    doctor_name: str | None = None
+    notes: str | None = None
 
 
 class AppointmentUpdate(BaseModel):
-    appointment_date: Optional[datetime] = None
-    reason: Optional[str] = None
-    notes: Optional[str] = None
+    appointment_date: datetime | None = None
+    reason: str | None = None
+    status: str | None = None
+    doctor_name: str | None = None
+    notes: str | None = None
 
 
 class AppointmentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     id: int
+    patient_id: int
     appointment_date: datetime
     reason: str
-    notes: Optional[str] = None
+    status: str
+    doctor_name: str | None = None
+    notes: str | None = None
     created_at: datetime
 
 
@@ -72,5 +79,5 @@ class Token(BaseModel):
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
+    email: str
     password: str
