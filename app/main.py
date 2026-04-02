@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
+import app.models  # noqa: F401 -- register models with Base.metadata
 
 app = FastAPI(title="AI Sandbox", version="0.1.0")
 
