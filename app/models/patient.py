@@ -20,4 +20,4 @@ class Patient(Base):
     created_at = Column(DateTime, default=func.now())
     updated_at = Column(DateTime, default=func.now(), onupdate=func.now())
 
-    appointments = relationship("Appointment", back_populates="patient")
+    appointments = relationship("Appointment")
