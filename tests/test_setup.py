@@ -2,6 +2,8 @@ import inspect
 import os
 from pathlib import Path
 
+import pytest
+
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -52,11 +54,23 @@ def test_requirements_parseable():
 def test_settings_class_defaults():
     from app.core.config import Settings
 
+    # SECRET_KEY is read from the environment variable set in conftest.py;
+    # there is intentionally no hardcoded default so that production
+    # deployments are forced to provide their own value.
     s = Settings()
     assert s.DATABASE_URL == "sqlite:///./patient_portal.db"
-    assert s.SECRET_KEY == "your-secret-key-change-in-production"
+    assert s.SECRET_KEY == os.environ["SECRET_KEY"]
     assert s.ALGORITHM == "HS256"
     assert s.ACCESS_TOKEN_EXPIRE_MINUTES == 30
+
+
+def test_settings_requires_secret_key(monkeypatch):
+    """Settings must raise ValueError when SECRET_KEY is missing."""
+    from app.core.config import Settings
+
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    with pytest.raises(ValueError, match="SECRET_KEY"):
+        Settings()
 
 
 def test_database_module_exports():
