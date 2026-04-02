@@ -8,38 +8,54 @@ from app.main import app
 
 SQLALCHEMY_DATABASE_URL = "sqlite://"
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@pytest.fixture(scope="function")
+def db_engine():
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
 
 
 @pytest.fixture(scope="function")
-def db_session():
-    Base.metadata.create_all(bind=engine)
+def db_session(db_engine):
+    testing_session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=db_engine
+    )
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
     app.dependency_overrides[get_db] = override_get_db
-    db = TestingSessionLocal()
+    db = testing_session_local()
     try:
         yield db
     finally:
         db.close()
-        Base.metadata.drop_all(bind=engine)
         app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
-def client():
-    Base.metadata.create_all(bind=engine)
+def client(db_engine):
+    testing_session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=db_engine
+    )
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
     app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
-    Base.metadata.drop_all(bind=engine)
     app.dependency_overrides.clear()

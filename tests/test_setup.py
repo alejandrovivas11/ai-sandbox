@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import text
+from sqlalchemy import MetaData, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 
@@ -17,18 +17,18 @@ def test_health_check_returns_200(client: TestClient) -> None:
 def test_config_settings_defaults() -> None:
     s = Settings()
     assert s.DATABASE_URL == "postgresql://postgres:postgres@localhost:5432/patient_mgmt"
-    assert s.SECRET_KEY == "dev-secret-key"
+    assert len(s.SECRET_KEY) >= 32, "Default SECRET_KEY should be randomly generated with sufficient length"
     assert s.ALGORITHM == "HS256"
     assert s.ACCESS_TOKEN_EXPIRE_MINUTES == 30
     assert s.ENVIRONMENT == "development"
     assert isinstance(s.CORS_ORIGINS, list)
 
 
-def test_config_rejects_default_key_in_production() -> None:
-    """SECRET_KEY validation must reject the default key in production."""
+def test_config_rejects_weak_key_in_production() -> None:
+    """SECRET_KEY validation must reject weak keys in production."""
     import pytest
 
-    with pytest.raises(ValueError, match="must be changed from the default"):
+    with pytest.raises(ValueError, match="at least 32 characters"):
         Settings(ENVIRONMENT="production", SECRET_KEY="dev-secret-key")
 
 
@@ -49,11 +49,19 @@ def test_config_accepts_strong_key_in_production() -> None:
     assert s.ENVIRONMENT == "production"
 
 
+def test_config_rejects_wildcard_cors_origin() -> None:
+    """CORS_ORIGINS must not contain the '*' wildcard."""
+    import pytest
+
+    with pytest.raises(ValueError, match="must not contain"):
+        Settings(CORS_ORIGINS=["*"])
+
+
 def test_database_exports() -> None:
     assert isinstance(db_engine, Engine)
     assert isinstance(SessionLocal, sessionmaker)
-    assert hasattr(Base, "metadata") and hasattr(Base, "registry"), (
-        "Base should be a SQLAlchemy declarative base with metadata and registry attributes"
+    assert isinstance(Base.metadata, MetaData), (
+        "Base.metadata should be a SQLAlchemy MetaData instance from declarative_base()"
     )
     assert callable(get_db)
 
