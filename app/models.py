@@ -1,7 +1,7 @@
 import enum
 from datetime import datetime, timezone
 
-from pydantic import BaseModel
+from pydantic import AwareDatetime, BaseModel
 from sqlalchemy import Column, DateTime, Enum, ForeignKey, Integer, String
 from sqlalchemy.orm import relationship
 
@@ -16,7 +16,7 @@ class StatusResponse(BaseModel):
     app_name: str
     version: str
     status: str
-    timestamp: datetime
+    timestamp: AwareDatetime
 
 
 # ---------------------------------------------------------------------------
@@ -58,8 +58,8 @@ class Appointment(Base):
     appointment_date = Column(DateTime, nullable=False)
     reason = Column(String, nullable=False)
     status = Column(
-        String,
-        default=AppointmentStatus.SCHEDULED.value,
+        Enum(AppointmentStatus),
+        default=AppointmentStatus.SCHEDULED,
         nullable=False,
     )
     doctor_name = Column(String, nullable=True)

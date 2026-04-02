@@ -1,6 +1,6 @@
 """Tests for the Appointment SQLAlchemy model and AppointmentStatus enum."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import inspect
 
@@ -103,7 +103,7 @@ def test_status_response_model_still_exists() -> None:
         app_name="test",
         version="0.0.1",
         status="ok",
-        timestamp=datetime(2026, 1, 1),
+        timestamp=datetime(2026, 1, 1, tzinfo=timezone.utc),
     )
     assert response.app_name == "test"
     assert response.version == "0.0.1"
