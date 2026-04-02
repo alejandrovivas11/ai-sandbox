@@ -1,10 +1,23 @@
 import pytest
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy import Column, ForeignKey, Integer, create_engine
+from sqlalchemy.orm import relationship, sessionmaker
 from starlette.testclient import TestClient
 
 from app.database import Base, get_db
-from app.main import app
+
+
+# Minimal stub so the Patient.appointments relationship can resolve.
+# Replace with the real Appointment model once it exists.
+class Appointment(Base):
+    __tablename__ = "appointments"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+
+    patient = relationship("Patient", back_populates="appointments")
+
+
+from app.main import app  # noqa: E402  (must come after Appointment is registered)
 
 SQLALCHEMY_DATABASE_URL = "sqlite://"
 
