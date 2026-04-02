@@ -1,0 +1,61 @@
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from fastapi.testclient import TestClient
+
+from app.database import Base, get_db
+from app.main import app
+
+SQLALCHEMY_DATABASE_URL = "sqlite://"
+
+
+@pytest.fixture(scope="function")
+def db_engine():
+    engine = create_engine(
+        SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
+    )
+    Base.metadata.create_all(bind=engine)
+    yield engine
+    Base.metadata.drop_all(bind=engine)
+    engine.dispose()
+
+
+@pytest.fixture(scope="function")
+def db_session(db_engine):
+    testing_session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=db_engine
+    )
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    db = testing_session_local()
+    try:
+        yield db
+    finally:
+        db.close()
+        app.dependency_overrides.clear()
+
+
+@pytest.fixture(scope="function")
+def client(db_engine):
+    testing_session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=db_engine
+    )
+
+    def override_get_db():
+        db = testing_session_local()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
