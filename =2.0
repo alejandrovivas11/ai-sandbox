@@ -1,0 +1,14 @@
+WARNING: Ignoring invalid distribution ~ (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+WARNING: Ignoring invalid distribution ~vicorn (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+WARNING: Ignoring invalid distribution ~ (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+WARNING: Ignoring invalid distribution ~vicorn (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+Requirement already satisfied: sqlalchemy in c:\users\admin\appdata\local\programs\python\python312\lib\site-packages (2.0.25)
+Requirement already satisfied: typing-extensions>=4.6.0 in c:\users\admin\appdata\local\programs\python\python312\lib\site-packages (from sqlalchemy) (4.15.0)
+Requirement already satisfied: greenlet!=0.4.17 in c:\users\admin\appdata\local\programs\python\python312\lib\site-packages (from sqlalchemy) (3.3.2)
+WARNING: Ignoring invalid distribution ~ (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+WARNING: Ignoring invalid distribution ~vicorn (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+WARNING: Ignoring invalid distribution ~ (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+WARNING: Ignoring invalid distribution ~vicorn (C:\Users\Admin\AppData\Local\Programs\Python\Python312\Lib\site-packages)
+
+[notice] A new release of pip is available: 24.2 -> 26.0.1
+[notice] To update, run: python.exe -m pip install --upgrade pip
