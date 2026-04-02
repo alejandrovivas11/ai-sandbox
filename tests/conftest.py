@@ -22,23 +22,24 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
-
-
 @pytest.fixture(scope="function")
 def db_session():
     Base.metadata.create_all(bind=engine)
+    app.dependency_overrides[get_db] = override_get_db
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
         Base.metadata.drop_all(bind=engine)
+        app.dependency_overrides.clear()
 
 
 @pytest.fixture(scope="function")
 def client():
     Base.metadata.create_all(bind=engine)
+    app.dependency_overrides[get_db] = override_get_db
     with TestClient(app) as c:
         yield c
     Base.metadata.drop_all(bind=engine)
+    app.dependency_overrides.clear()
