@@ -13,7 +13,23 @@ class PatientBase(BaseModel):
 
 
 class PatientCreate(PatientBase):
-    password: str = Field(min_length=8)
+    """Schema for creating a new patient.
+
+    The ``password`` field accepts a plaintext password that MUST be hashed
+    (e.g. via bcrypt) before being persisted to the database.  It is marked
+    ``repr=False`` so that it is excluded from string representations and
+    will not appear in logs or error messages.
+    """
+
+    password: str = Field(
+        min_length=8,
+        max_length=128,
+        repr=False,
+        description=(
+            "Plaintext password. Must be hashed before storage. "
+            "Never log or return this value in API responses."
+        ),
+    )
 
 
 class PatientUpdate(BaseModel):
