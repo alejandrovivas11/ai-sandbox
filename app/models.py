@@ -38,6 +38,13 @@ def _utcnow() -> datetime:
 
 
 class Patient(Base):
+    """Represents a patient record.
+
+    This model exists to support the foreign-key relationship from
+    Appointment.patient_id -> patients.id and will be extended when
+    patient-management endpoints are added.
+    """
+
     __tablename__ = "patients"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -54,7 +61,12 @@ class Appointment(Base):
     __tablename__ = "appointments"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False)
+    patient_id = Column(
+        Integer,
+        ForeignKey("patients.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     appointment_date = Column(DateTime, nullable=False)
     reason = Column(String, nullable=False)
     status = Column(
