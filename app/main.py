@@ -1,24 +1,19 @@
-"""FastAPI application with health check endpoint."""
-
-from datetime import datetime, timezone
+"""Patient Management API application."""
 
 from fastapi import FastAPI
 
-from app.schemas import HealthResponse
+from app.routes.appointments import router as appointments_router
+from app.routes.patients import router as patients_router
+from app.routes.dashboard import router as dashboard_router
 
-app = FastAPI(title="Health Check API", version="0.1.0")
+app = FastAPI(title="Patient Management API", version="1.0.0")
+
+app.include_router(patients_router)
+app.include_router(appointments_router)
+app.include_router(dashboard_router)
 
 
 @app.get("/")
-def root() -> dict[str, str]:
-    """Root endpoint."""
-    return {"message": "AI Sandbox is running"}
-
-
-@app.get("/api/health", response_model=HealthResponse)
-def health_check() -> HealthResponse:
-    """Return current health status with a UTC timestamp."""
-    return HealthResponse(
-        status="ok",
-        timestamp=datetime.now(timezone.utc).isoformat(),
-    )
+def root() -> dict:
+    """Root endpoint returning API identification."""
+    return {"message": "Patient Management API"}
