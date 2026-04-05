@@ -6,7 +6,7 @@ from app import storage
 def valid_patient_data() -> dict:
     """Return a valid patient payload for use across tests."""
     return {
-        "first_name": "Jane",
+        "first_name": "John",
         "last_name": "Doe",
         "date_of_birth": "1990-01-15",
         "gender": "female",
@@ -19,7 +19,7 @@ def valid_patient_data() -> dict:
 # ---------- POST /patients/ ----------
 
 
-def test_create_patient_valid_data(client: TestClient) -> None:
+def test_create_patient(client: TestClient) -> None:
     """POST /patients/ with valid data returns 201 with id, timestamps, and echoed fields."""
     # Arrange
     payload = valid_patient_data()
