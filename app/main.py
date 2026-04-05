@@ -2,12 +2,14 @@
 
 from fastapi import FastAPI
 
+from app.routes.appointments import router as appointments_router
 from app.routes.patients import router as patients_router
 from app.routes.dashboard import router as dashboard_router
 
 app = FastAPI(title="Patient Management API", version="1.0.0")
 
 app.include_router(patients_router)
+app.include_router(appointments_router)
 app.include_router(dashboard_router)
 
 
