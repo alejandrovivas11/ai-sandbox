@@ -1,21 +1,39 @@
-# AI Sandbox
+# Health Check API
 
-A minimal FastAPI application used as a target repository for the AI Engineering System.
+A FastAPI application providing a health check endpoint.
 
-## Run locally
+## Setup
 
 ```bash
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
 ```
 
-## Purpose
+## Run
 
-This repo exists so the AI Engineering System can:
+```bash
+uvicorn app.main:app --reload --port 8000
+```
 
-- Clone it
-- Create branches
-- Make code changes
-- Open PRs
+## Test
 
-Do not add complex logic here. Keep it minimal.
+```bash
+pytest
+```
+
+## Endpoint
+
+### GET /api/health
+
+Returns the current health status of the application.
+
+**Response (200 OK):**
+
+```json
+{
+  "status": "ok",
+  "timestamp": "2026-04-05T12:00:00+00:00"
+}
+```
+
+- `status` (string): Always `"ok"` when the service is healthy.
+- `timestamp` (string): Current UTC time in ISO 8601 format.
