@@ -1,7 +1,7 @@
 """Service layer for patient business logic."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.models.patient import PatientCreate, PatientUpdate
 from app.storage import patients_db
@@ -39,7 +39,10 @@ def update_patient(patient_id: str, data: PatientUpdate) -> dict | None:
     updates = data.model_dump(exclude_unset=True)
     for key, value in updates.items():
         patient[key] = value
-    patient["updated_at"] = datetime.utcnow()
+    now = datetime.utcnow()
+    if patient.get("updated_at") and now <= patient["updated_at"]:
+        now = patient["updated_at"] + timedelta(microseconds=1)
+    patient["updated_at"] = now
     return patient
 
 
