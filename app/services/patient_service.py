@@ -1,50 +1,43 @@
 """Service layer for patient business logic."""
 
-from datetime import datetime, timedelta
-
 from app.models.patient import PatientCreate, PatientUpdate
-from app.storage import next_patient_id, patients_db
+from app.storage import get_storage
 
 
 def create_patient(data: PatientCreate) -> dict:
-    """Create a new patient, store in memory, and return the full record."""
-    patient_id = next_patient_id()
-    now = datetime.utcnow()
-    patient = {
-        "id": patient_id,
-        **data.model_dump(),
-        "created_at": now,
-        "updated_at": now,
-    }
-    patients_db[patient_id] = patient
-    return patient
+    """Create a new patient, store it, and return the full record.
+
+    Returns an integer patient_id consistently.
+    """
+    dump = data.model_dump()
+    # Convert date objects to ISO strings for SQL storage
+    if hasattr(dump["date_of_birth"], "isoformat"):
+        dump["date_of_birth"] = dump["date_of_birth"].isoformat()
+    return get_storage().insert_patient(**dump)
 
 
-def get_patient(patient_id: str) -> dict | None:
-    """Return a patient dict by id, or None if not found."""
-    return patients_db.get(patient_id)
+def get_patient(patient_id: int) -> dict | None:
+    """Return a patient dict by integer id, or None if not found."""
+    return get_storage().get_patient(patient_id)
 
 
 def get_all_patients() -> list[dict]:
     """Return a list of all patient dicts."""
-    return list(patients_db.values())
+    return get_storage().get_all_patients()
 
 
-def update_patient(patient_id: str, data: PatientUpdate) -> dict | None:
+def update_patient(patient_id: int, data: PatientUpdate) -> dict | None:
     """Partially update a patient. Returns updated dict or None if not found."""
-    patient = patients_db.get(patient_id)
-    if patient is None:
-        return None
     updates = data.model_dump(exclude_unset=True)
-    for key, value in updates.items():
-        patient[key] = value
-    now = datetime.utcnow()
-    if patient.get("updated_at") and now <= patient["updated_at"]:
-        now = patient["updated_at"] + timedelta(microseconds=1)
-    patient["updated_at"] = now
-    return patient
+    if not updates:
+        return get_storage().get_patient(patient_id)
+    if "date_of_birth" in updates and hasattr(
+        updates["date_of_birth"], "isoformat"
+    ):
+        updates["date_of_birth"] = updates["date_of_birth"].isoformat()
+    return get_storage().update_patient(patient_id, **updates)
 
 
-def delete_patient(patient_id: str) -> bool:
+def delete_patient(patient_id: int) -> bool:
     """Remove a patient from storage. Returns True if deleted, False if not found."""
-    return patients_db.pop(patient_id, None) is not None
+    return get_storage().delete_patient(patient_id)

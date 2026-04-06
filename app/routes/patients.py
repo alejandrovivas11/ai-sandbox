@@ -21,7 +21,7 @@ def get_patients() -> list[dict]:
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
-def get_patient(patient_id: str) -> dict:
+def get_patient(patient_id: int) -> dict:
     """Return a single patient by id."""
     patient = patient_service.get_patient(patient_id)
     if patient is None:
@@ -30,7 +30,7 @@ def get_patient(patient_id: str) -> dict:
 
 
 @router.put("/{patient_id}", response_model=PatientResponse)
-def update_patient(patient_id: str, data: PatientUpdate) -> dict:
+def update_patient(patient_id: int, data: PatientUpdate) -> dict:
     """Partially update an existing patient."""
     patient = patient_service.update_patient(patient_id, data)
     if patient is None:
@@ -39,7 +39,7 @@ def update_patient(patient_id: str, data: PatientUpdate) -> dict:
 
 
 @router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_patient(patient_id: str) -> Response:
+def delete_patient(patient_id: int) -> Response:
     """Delete a patient by id."""
     deleted = patient_service.delete_patient(patient_id)
     if not deleted:

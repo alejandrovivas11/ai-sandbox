@@ -75,7 +75,7 @@ def create_appointment(client: TestClient, create_patient):
     """
 
     def _factory(
-        patient_id: str | None = None,
+        patient_id: int | None = None,
         **overrides: object,
     ) -> dict:
         if patient_id is None:

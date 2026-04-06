@@ -39,7 +39,7 @@ class AppointmentResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: int
     patient_id: int
     date_time: datetime
     appointment_type: str
