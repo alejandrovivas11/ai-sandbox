@@ -11,6 +11,27 @@ from datetime import datetime, timedelta
 from app.migrations import run_migrations
 
 
+class _ConnectionProxy:
+    """Thin proxy around sqlite3.Connection that permits mock patching.
+
+    sqlite3.Connection.execute is read-only in recent CPython versions,
+    so tests cannot patch it directly.  This proxy forwards calls and
+    exposes a patchable ``execute`` attribute.
+    """
+
+    def __init__(self, conn: sqlite3.Connection) -> None:
+        self._conn = conn
+
+    def execute(self, sql: str, params: object = None) -> sqlite3.Cursor:
+        """Execute SQL, delegating to the real connection."""
+        if params is not None:
+            return self._conn.execute(sql, params)
+        return self._conn.execute(sql)
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._conn, name)
+
+
 class SQLStorage:
     """SQLite-backed storage with raw SQL queries and JOIN support."""
 
@@ -19,11 +40,12 @@ class SQLStorage:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         run_migrations(self._conn)
+        self._proxy = _ConnectionProxy(self._conn)
 
     @property
-    def connection(self) -> sqlite3.Connection:
-        """Expose the underlying connection for advanced use."""
-        return self._conn
+    def connection(self) -> _ConnectionProxy:
+        """Expose a patchable proxy around the underlying connection."""
+        return self._proxy
 
     # ------------------------------------------------------------------ #
     #  Helpers                                                            #
@@ -272,6 +294,66 @@ class SQLStorage:
         )
         self._conn.commit()
         return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------ #
+    #  Analytics operations                                               #
+    # ------------------------------------------------------------------ #
+
+    def count_patients_by_period(
+        self,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> int:
+        """Count patients created within a date range using parameterized SQL."""
+        query = "SELECT COUNT(*) FROM patients WHERE 1=1"
+        params: list[str] = []
+        if date_from is not None:
+            query += " AND created_at >= ?"
+            params.append(date_from)
+        if date_to is not None:
+            query += " AND created_at < ?"
+            params.append(date_to)
+        row = self._proxy.execute(query, params).fetchone()
+        return row[0]
+
+    def count_appointments_by_status(
+        self,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> dict[str, int]:
+        """Count appointments grouped by status with optional date filtering."""
+        query = "SELECT status, COUNT(*) as count FROM appointments WHERE 1=1"
+        params: list[str] = []
+        if date_from is not None:
+            query += " AND date_time >= ?"
+            params.append(date_from)
+        if date_to is not None:
+            query += " AND date_time <= ?"
+            params.append(date_to)
+        query += " GROUP BY status"
+        rows = self._proxy.execute(query, params).fetchall()
+        return {row["status"]: row["count"] for row in rows}
+
+    def get_recent_activities(self, limit: int = 20) -> dict[str, list[dict]]:
+        """Get recent patient and appointment events for the activity feed."""
+        patient_rows = self._proxy.execute(
+            "SELECT id, first_name, last_name, created_at "
+            "FROM patients ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+        appointment_rows = self._proxy.execute(
+            "SELECT a.id, a.appointment_type, a.status, a.created_at, "
+            "p.first_name, p.last_name "
+            "FROM appointments a JOIN patients p ON a.patient_id = p.id "
+            "ORDER BY a.created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+        return {
+            "patients": [dict(r) for r in patient_rows],
+            "appointments": [dict(r) for r in appointment_rows],
+        }
 
     # ------------------------------------------------------------------ #
     #  Utility                                                            #
