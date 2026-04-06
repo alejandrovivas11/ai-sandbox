@@ -2,6 +2,7 @@
 
 from datetime import datetime, timedelta
 
+from app.models.dashboard import RecentActivity
 from app.storage import get_storage
 
 
@@ -26,7 +27,15 @@ def calculate_completion_rate(completed: int, total: int) -> float:
 
 
 def format_activity_message(event_type: str, event_data: dict) -> str:
-    """Format a human-readable activity message for the activity feed."""
+    """Format a human-readable activity message for the activity feed.
+
+    Handles missing keys gracefully by providing sensible defaults.
+    """
+    if not event_data:
+        event_data = {}
+    if not event_type:
+        event_type = "unknown"
+
     first_name = event_data.get("first_name", "Unknown")
     last_name = event_data.get("last_name", "")
 
@@ -122,6 +131,18 @@ def get_dashboard_stats() -> dict:
     }
 
 
+def get_overview_stats() -> dict:
+    """Get overview stats using the storage layer's SQL aggregations."""
+    storage = get_storage()
+    return storage.get_dashboard_stats()
+
+
+def get_upcoming_appointments() -> list[dict]:
+    """Get upcoming scheduled appointments from storage."""
+    storage = get_storage()
+    return storage.get_upcoming_appointments()
+
+
 def get_patient_analytics(
     date_from: str | None = None,
     date_to: str | None = None,
@@ -179,6 +200,39 @@ def get_appointment_analytics(
             "cancelled": status_counts.get("cancelled", 0),
         }
     }
+
+
+def get_recent_activities() -> list[dict]:
+    """Get recent activities as RecentActivity model instances.
+
+    Returns a list of dicts matching the RecentActivity schema with
+    id, type, description, timestamp, and patient_name fields.
+    """
+    storage = get_storage()
+    data = storage.get_recent_activities()
+
+    activities: list[RecentActivity] = []
+    for patient in data["patients"]:
+        name = f"{patient.get('first_name', 'Unknown')} {patient.get('last_name', '')}".strip()
+        activities.append(RecentActivity(
+            id=patient["id"],
+            type="patient_registered",
+            description=format_activity_message("patient_registered", patient),
+            timestamp=patient["created_at"],
+            patient_name=name,
+        ))
+    for appt in data["appointments"]:
+        name = f"{appt.get('first_name', 'Unknown')} {appt.get('last_name', '')}".strip()
+        activities.append(RecentActivity(
+            id=appt["id"],
+            type="appointment_created",
+            description=format_activity_message("appointment_created", appt),
+            timestamp=appt["created_at"],
+            patient_name=name,
+        ))
+
+    activities.sort(key=lambda x: x.timestamp, reverse=True)
+    return [a.model_dump() for a in activities]
 
 
 def get_recent_activity() -> dict:

@@ -95,7 +95,7 @@ class TestPatientAnalyticsEndpoint:
         )
 
         # Act
-        response = client.get("/dashboard/patient-analytics")
+        response = client.get("/dashboard/patients/stats")
 
         # Assert
         assert response.status_code == 200, (
@@ -156,7 +156,7 @@ class TestAppointmentAnalyticsEndpoint:
         )
 
         # Act
-        response = client.get("/dashboard/appointment-analytics")
+        response = client.get("/dashboard/appointments/stats")
 
         # Assert
         assert response.status_code == 200, (
@@ -254,7 +254,7 @@ class TestDashboardEmptyDatabase:
         )
 
         # Act -- call patient analytics endpoint
-        patient_response = client.get("/dashboard/patient-analytics")
+        patient_response = client.get("/dashboard/patients/stats")
 
         # Assert -- patient analytics should return zeros
         assert patient_response.status_code == 200, (
@@ -282,33 +282,28 @@ class TestDashboardModelValidation:
     """Tests for Pydantic model validation on dashboard models."""
 
     def test_dashboard_models_validate_rate_bounds(self) -> None:
-        """Verify DashboardStats models reject rate values outside 0-100
+        """Verify dashboard models reject rate values outside 0-100
         range and negative integer counts with proper validation errors.
         """
-        from app.models.dashboard import DashboardMetrics
+        from app.models.dashboard import AppointmentStats, DashboardStats
 
-        # Rate above 100 should be rejected
+        # Completion rate above 100 should be rejected
         with pytest.raises(ValidationError, match="rate|bounds|less than or equal"):
-            DashboardMetrics(
-                total_patients=10,
-                total_appointments=5,
-                upcoming_appointments_count=2,
-                completed_appointments_count=3,
-                cancelled_appointments_count=0,
-                patients_seen_today=1,
+            AppointmentStats(
+                total_scheduled=5,
+                completed=3,
+                cancelled=1,
+                no_show=0,
                 completion_rate=150.0,
-                growth_rate=-200.0,
             )
 
         # Negative counts should be rejected
         with pytest.raises(ValidationError, match="count|greater than|negative"):
-            DashboardMetrics(
+            DashboardStats(
                 total_patients=-1,
                 total_appointments=5,
-                upcoming_appointments_count=2,
-                completed_appointments_count=3,
-                cancelled_appointments_count=0,
-                patients_seen_today=1,
+                appointments_today=0,
+                new_patients_this_month=0,
             )
 
 
@@ -323,7 +318,7 @@ class TestDashboardDateValidation:
         """
         # Act -- send malformed date_from parameter
         response = client.get(
-            "/dashboard/patient-analytics",
+            "/dashboard/patients/stats",
             params={"date_from": "not-a-date"},
         )
 
@@ -334,7 +329,7 @@ class TestDashboardDateValidation:
 
         # Act -- send malformed date_to parameter
         response = client.get(
-            "/dashboard/appointment-analytics",
+            "/dashboard/appointments/stats",
             params={"date_from": "2026-01-01", "date_to": "invalid-date"},
         )
 

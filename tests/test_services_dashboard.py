@@ -131,8 +131,7 @@ class TestDateFilteringBoundaries:
         """Verify date filtering correctly handles month start/end boundaries
         when calculating monthly statistics and trends.
         """
-        # Arrange -- reset storage and insert patients at boundary dates
-        storage.reset()
+        # Arrange -- insert patients at boundary dates
         store = storage.get_storage()
 
         # Patient created on last day of previous month
@@ -177,10 +176,9 @@ class TestAnalyticsParameterizedSQL:
         """Verify analytics service uses parameterized queries for date ranges
         and filters to prevent SQL injection vulnerabilities.
         """
-        # Arrange -- reset storage and set up mock to inspect SQL calls
-        storage.reset()
+        # Arrange -- set up mock to inspect SQL calls via direct connection access
         store = storage.get_storage()
-        original_execute = store.connection.execute
+        original_execute = store.execute
 
         executed_queries: list[tuple] = []
 
@@ -190,7 +188,7 @@ class TestAnalyticsParameterizedSQL:
             return original_execute(sql, params) if params else original_execute(sql)
 
         # Act -- call analytics with date filters through the service
-        with patch.object(store.connection, "execute", side_effect=tracking_execute):
+        with patch.object(store, "execute", side_effect=tracking_execute):
             try:
                 dashboard_service.get_patient_analytics(
                     date_from="2026-01-01",

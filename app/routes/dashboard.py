@@ -22,7 +22,7 @@ def get_dashboard_stats() -> dict:
     return dashboard_service.get_dashboard_stats()
 
 
-@router.get("/patient-analytics")
+@router.get("/patients/stats")
 def get_patient_analytics(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
@@ -34,7 +34,7 @@ def get_patient_analytics(
     )
 
 
-@router.get("/appointment-analytics")
+@router.get("/appointments/stats")
 def get_appointment_analytics(
     date_from: date | None = Query(default=None),
     date_to: date | None = Query(default=None),
@@ -44,6 +44,12 @@ def get_appointment_analytics(
         date_from=date_from.isoformat() if date_from else None,
         date_to=date_to.isoformat() if date_to else None,
     )
+
+
+@router.get("/upcoming-appointments")
+def get_upcoming_appointments() -> list[dict]:
+    """Return upcoming scheduled appointments."""
+    return dashboard_service.get_upcoming_appointments()
 
 
 @router.get("/recent-activity")

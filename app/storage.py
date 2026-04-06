@@ -11,27 +11,6 @@ from datetime import datetime, timedelta
 from app.migrations import run_migrations
 
 
-class _ConnectionProxy:
-    """Thin proxy around sqlite3.Connection that permits mock patching.
-
-    sqlite3.Connection.execute is read-only in recent CPython versions,
-    so tests cannot patch it directly.  This proxy forwards calls and
-    exposes a patchable ``execute`` attribute.
-    """
-
-    def __init__(self, conn: sqlite3.Connection) -> None:
-        self._conn = conn
-
-    def execute(self, sql: str, params: object = None) -> sqlite3.Cursor:
-        """Execute SQL, delegating to the real connection."""
-        if params is not None:
-            return self._conn.execute(sql, params)
-        return self._conn.execute(sql)
-
-    def __getattr__(self, name: str) -> object:
-        return getattr(self._conn, name)
-
-
 class SQLStorage:
     """SQLite-backed storage with raw SQL queries and JOIN support."""
 
@@ -40,12 +19,16 @@ class SQLStorage:
         self._conn.row_factory = sqlite3.Row
         self._conn.execute("PRAGMA foreign_keys = ON")
         run_migrations(self._conn)
-        self._proxy = _ConnectionProxy(self._conn)
 
-    @property
-    def connection(self) -> _ConnectionProxy:
-        """Expose a patchable proxy around the underlying connection."""
-        return self._proxy
+    def execute(self, sql: str, params: object = None) -> sqlite3.Cursor:
+        """Execute SQL on the underlying connection.
+
+        Provides a patchable entry point for analytics queries so that
+        tests can verify parameterized SQL usage.
+        """
+        if params is not None:
+            return self._conn.execute(sql, params)
+        return self._conn.execute(sql)
 
     # ------------------------------------------------------------------ #
     #  Helpers                                                            #
@@ -313,7 +296,7 @@ class SQLStorage:
         if date_to is not None:
             query += " AND created_at < ?"
             params.append(date_to)
-        row = self._proxy.execute(query, params).fetchone()
+        row = self.execute(query, params).fetchone()
         return row[0]
 
     def count_appointments_by_status(
@@ -331,18 +314,18 @@ class SQLStorage:
             query += " AND date_time <= ?"
             params.append(date_to)
         query += " GROUP BY status"
-        rows = self._proxy.execute(query, params).fetchall()
+        rows = self.execute(query, params).fetchall()
         return {row["status"]: row["count"] for row in rows}
 
     def get_recent_activities(self, limit: int = 20) -> dict[str, list[dict]]:
         """Get recent patient and appointment events for the activity feed."""
-        patient_rows = self._proxy.execute(
+        patient_rows = self.execute(
             "SELECT id, first_name, last_name, created_at "
             "FROM patients ORDER BY created_at DESC LIMIT ?",
             (limit,),
         ).fetchall()
 
-        appointment_rows = self._proxy.execute(
+        appointment_rows = self.execute(
             "SELECT a.id, a.appointment_type, a.status, a.created_at, "
             "p.first_name, p.last_name "
             "FROM appointments a JOIN patients p ON a.patient_id = p.id "
@@ -353,6 +336,61 @@ class SQLStorage:
         return {
             "patients": [dict(r) for r in patient_rows],
             "appointments": [dict(r) for r in appointment_rows],
+        }
+
+    def get_upcoming_appointments(self) -> list[dict]:
+        """Get appointments scheduled in the future with patient info."""
+        now = datetime.utcnow().isoformat()
+        rows = self.execute(
+            """SELECT a.*, p.first_name, p.last_name
+               FROM appointments a
+               JOIN patients p ON a.patient_id = p.id
+               WHERE a.date_time > ? AND a.status = 'scheduled'
+               ORDER BY a.date_time""",
+            (now,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_patient_growth_data(self) -> list[dict]:
+        """Get patient registration trends grouped by date."""
+        rows = self.execute(
+            """SELECT date(created_at) as registration_date, COUNT(*) as count
+               FROM patients
+               GROUP BY date(created_at)
+               ORDER BY registration_date"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_dashboard_stats(self) -> dict:
+        """Get aggregated dashboard statistics with SQL aggregations."""
+        now = datetime.utcnow()
+        first_of_month = now.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        today = now.date().isoformat()
+
+        total_patients = self.execute(
+            "SELECT COUNT(*) FROM patients"
+        ).fetchone()[0]
+
+        new_this_month = self.execute(
+            "SELECT COUNT(*) FROM patients WHERE created_at >= ?",
+            (first_of_month.isoformat(),),
+        ).fetchone()[0]
+
+        appointments_today = self.execute(
+            "SELECT COUNT(*) FROM appointments WHERE date(date_time) = ?",
+            (today,),
+        ).fetchone()[0]
+
+        status_counts = self.count_appointments_by_status()
+        total_appointments = sum(status_counts.values())
+
+        return {
+            "total_patients": total_patients,
+            "total_appointments": total_appointments,
+            "appointments_today": appointments_today,
+            "new_patients_this_month": new_this_month,
         }
 
     # ------------------------------------------------------------------ #
