@@ -1,6 +1,6 @@
 """Patient API routes."""
 
-from fastapi import APIRouter, HTTPException, Response, status
+from fastapi import APIRouter, HTTPException, status
 
 from app.models.patient import PatientCreate, PatientResponse, PatientUpdate
 from app.services import patient_service
@@ -17,7 +17,7 @@ def create_patient(data: PatientCreate) -> dict:
 @router.get("/", response_model=list[PatientResponse])
 def get_patients() -> list[dict]:
     """Return all patients."""
-    return patient_service.get_all_patients()
+    return patient_service.get_patients()
 
 
 @router.get("/{patient_id}", response_model=PatientResponse)
@@ -38,10 +38,10 @@ def update_patient(patient_id: str, data: PatientUpdate) -> dict:
     return patient
 
 
-@router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_patient(patient_id: str) -> Response:
+@router.delete("/{patient_id}")
+def delete_patient(patient_id: str) -> dict:
     """Delete a patient by id."""
     deleted = patient_service.delete_patient(patient_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Patient not found")
-    return Response(status_code=204)
+    return {"message": "Patient deleted"}

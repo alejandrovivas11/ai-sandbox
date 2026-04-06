@@ -1,28 +1,65 @@
-"""In-memory storage for the Patient Management API."""
+"""SQLite storage layer for the Patient Management API."""
+
+import os
+import sqlite3
+
+DATABASE_PATH: str = "data/patients.db"
 
 
-class Storage(dict):
-    """A dict subclass whose __getattribute__ returns attributes defined
-    directly in the subclass __dict__ without descriptor binding.
+def set_database_path(path: str) -> None:
+    """Update the module-level database path."""
+    global DATABASE_PATH
+    DATABASE_PATH = path
 
-    This allows test code to patch methods (e.g. ``values``) on the
-    *class* and have the replacement callable invoked without an implicit
-    ``self`` argument, while normal inherited dict methods continue to
-    work through the standard descriptor protocol.
+
+def get_connection() -> sqlite3.Connection:
+    """Create and return a new SQLite connection.
+
+    Each call creates a fresh connection with foreign keys enabled
+    and row_factory set to sqlite3.Row for dict-like row access.
     """
-
-    def __getattribute__(self, name: str):
-        cls = type(self)
-        if name in cls.__dict__:
-            return cls.__dict__[name]
-        return super().__getattribute__(name)
+    conn = sqlite3.connect(DATABASE_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
-patients_db: Storage = Storage()
-appointments_db: Storage = Storage()
+def init_db() -> None:
+    """Initialize the database schema.
 
+    Creates the data directory and both the patients and appointments
+    tables if they do not already exist.
+    """
+    db_dir = os.path.dirname(DATABASE_PATH)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
 
-def reset() -> None:
-    """Clear all in-memory data stores. Uses .clear() to preserve references."""
-    patients_db.clear()
-    appointments_db.clear()
+    conn = get_connection()
+    try:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS patients ("
+            "id TEXT PRIMARY KEY, "
+            "name TEXT NOT NULL, "
+            "email TEXT NOT NULL, "
+            "phone TEXT, "
+            "date_of_birth TEXT, "
+            "created_at TEXT NOT NULL, "
+            "updated_at TEXT NOT NULL"
+            ")"
+        )
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS appointments ("
+            "id TEXT PRIMARY KEY, "
+            "patient_id TEXT NOT NULL, "
+            "doctor_name TEXT NOT NULL, "
+            "datetime TEXT NOT NULL, "
+            "status TEXT NOT NULL DEFAULT 'scheduled', "
+            "notes TEXT, "
+            "created_at TEXT NOT NULL, "
+            "updated_at TEXT NOT NULL, "
+            "FOREIGN KEY (patient_id) REFERENCES patients(id)"
+            ")"
+        )
+        conn.commit()
+    finally:
+        conn.close()

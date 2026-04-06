@@ -1,51 +1,100 @@
-"""Service layer for patient business logic."""
+"""Service layer for patient business logic using SQLite storage."""
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 
+from app import storage
 from app.models.patient import PatientCreate, PatientUpdate
-from app.storage import patients_db
 
 
 def create_patient(data: PatientCreate) -> dict:
-    """Create a new patient, store in memory, and return the full record."""
+    """Create a new patient in SQLite and return the full record."""
     patient_id = str(uuid.uuid4())
-    now = datetime.utcnow()
-    patient = {
-        "id": patient_id,
-        **data.model_dump(),
-        "created_at": now,
-        "updated_at": now,
-    }
-    patients_db[patient_id] = patient
-    return patient
+    now = datetime.now(timezone.utc).isoformat()
+    conn = storage.get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO patients "
+            "(id, name, email, phone, date_of_birth, created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (patient_id, data.name, data.email, data.phone,
+             data.date_of_birth, now, now),
+        )
+        conn.commit()
+        cursor = conn.execute(
+            "SELECT * FROM patients WHERE id = ?", (patient_id,)
+        )
+        row = cursor.fetchone()
+        return dict(row)
+    finally:
+        conn.close()
+
+
+def get_patients() -> list[dict]:
+    """Return a list of all patients."""
+    conn = storage.get_connection()
+    try:
+        cursor = conn.execute("SELECT * FROM patients")
+        return [dict(row) for row in cursor.fetchall()]
+    finally:
+        conn.close()
 
 
 def get_patient(patient_id: str) -> dict | None:
     """Return a patient dict by id, or None if not found."""
-    return patients_db.get(patient_id)
-
-
-def get_all_patients() -> list[dict]:
-    """Return a list of all patient dicts."""
-    return list(patients_db.values())
+    conn = storage.get_connection()
+    try:
+        cursor = conn.execute(
+            "SELECT * FROM patients WHERE id = ?", (patient_id,)
+        )
+        row = cursor.fetchone()
+        if row is None:
+            return None
+        return dict(row)
+    finally:
+        conn.close()
 
 
 def update_patient(patient_id: str, data: PatientUpdate) -> dict | None:
-    """Partially update a patient. Returns updated dict or None if not found."""
-    patient = patients_db.get(patient_id)
-    if patient is None:
-        return None
-    updates = data.model_dump(exclude_unset=True)
-    for key, value in updates.items():
-        patient[key] = value
-    now = datetime.utcnow()
-    if patient.get("updated_at") and now <= patient["updated_at"]:
-        now = patient["updated_at"] + timedelta(microseconds=1)
-    patient["updated_at"] = now
-    return patient
+    """Partially update a patient. Returns updated dict or None."""
+    conn = storage.get_connection()
+    try:
+        cursor = conn.execute(
+            "SELECT * FROM patients WHERE id = ?", (patient_id,)
+        )
+        if cursor.fetchone() is None:
+            return None
+
+        updates = data.model_dump(exclude_none=True)
+        now = datetime.now(timezone.utc).isoformat()
+        updates["updated_at"] = now
+
+        set_clauses = [key + " = ?" for key in updates]
+        values = list(updates.values())
+        values.append(patient_id)
+
+        conn.execute(
+            "UPDATE patients SET " + ", ".join(set_clauses) + " WHERE id = ?",
+            values,
+        )
+        conn.commit()
+
+        cursor = conn.execute(
+            "SELECT * FROM patients WHERE id = ?", (patient_id,)
+        )
+        return dict(cursor.fetchone())
+    finally:
+        conn.close()
 
 
 def delete_patient(patient_id: str) -> bool:
-    """Remove a patient from storage. Returns True if deleted, False if not found."""
-    return patients_db.pop(patient_id, None) is not None
+    """Remove a patient. Returns True if deleted, False if not found."""
+    conn = storage.get_connection()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM patients WHERE id = ?", (patient_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()

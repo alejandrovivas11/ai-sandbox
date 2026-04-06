@@ -1,14 +1,11 @@
-"""Dashboard route providing aggregated metrics."""
+"""Dashboard route (stub for Task 3)."""
 
 from fastapi import APIRouter
-
-from app.models.dashboard import DashboardMetrics
-from app.services import dashboard_service
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 
 
-@router.get("/", response_model=DashboardMetrics)
+@router.get("/")
 def get_dashboard() -> dict:
-    """Return aggregated dashboard metrics."""
-    return dashboard_service.get_dashboard_metrics()
+    """Stub: return empty dashboard response."""
+    return {}
