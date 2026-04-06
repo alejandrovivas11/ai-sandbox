@@ -82,15 +82,81 @@ def create_appointment(client: TestClient, create_patient):
             patient = create_patient()
             patient_id = patient["id"]
 
+        # Map legacy field names to new schema for backward compatibility
+        if "date_time" in overrides:
+            overrides["datetime"] = overrides.pop("date_time")
+        if "appointment_type" in overrides:
+            overrides["doctor_name"] = overrides.pop("appointment_type")
+
         defaults = {
             "patient_id": patient_id,
-            "date_time": "2025-12-15T10:00:00",
-            "appointment_type": "checkup",
+            "datetime": "2025-12-15T10:00:00",
+            "doctor_name": "checkup",
+            "notes": "",
         }
         defaults.update(overrides)
         response = client.post("/appointments/", json=defaults)
         assert response.status_code == 201, (
             f"create_appointment factory expected 201, got {response.status_code}"
+        )
+        return response.json()
+
+    return _factory
+
+
+@pytest.fixture
+def sample_appointment_data():
+    """Return a callable factory that produces appointment data using the
+    new schema fields: patient_id, doctor_name, datetime, status, notes.
+
+    The factory accepts optional keyword overrides to customize individual
+    fields.  Unspecified fields use sensible defaults.
+    """
+
+    def _factory(patient_id: int = 1, **overrides: object) -> dict:
+        defaults = {
+            "patient_id": patient_id,
+            "doctor_name": "Dr. Smith",
+            "datetime": "2026-06-15T09:30:00",
+            "status": "scheduled",
+            "notes": "General consultation",
+        }
+        defaults.update(overrides)
+        return defaults
+
+    return _factory
+
+
+@pytest.fixture
+def create_appointment_new_schema(client: TestClient, create_patient):
+    """Return a callable factory that creates an appointment via the API
+    using the new schema fields (doctor_name, datetime, notes).
+
+    If no patient_id is provided, a new patient is created automatically.
+    Accepts optional keyword overrides for the appointment payload.
+    Asserts that the response status is 201 Created.
+    """
+
+    def _factory(
+        patient_id: int | None = None,
+        **overrides: object,
+    ) -> dict:
+        if patient_id is None:
+            patient = create_patient()
+            patient_id = patient["id"]
+
+        defaults = {
+            "patient_id": patient_id,
+            "doctor_name": "Dr. Smith",
+            "datetime": "2026-06-15T09:30:00",
+            "status": "scheduled",
+            "notes": "General consultation",
+        }
+        defaults.update(overrides)
+        response = client.post("/appointments/", json=defaults)
+        assert response.status_code == 201, (
+            f"create_appointment_new_schema factory expected 201, "
+            f"got {response.status_code}: {response.text}"
         )
         return response.json()
 

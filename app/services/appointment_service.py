@@ -2,7 +2,11 @@
 
 from datetime import datetime
 
-from app.models.appointment import AppointmentCreate, AppointmentUpdate
+from app.models.appointment import (
+    AppointmentCreate,
+    AppointmentUpdate,
+    VALID_STATUS_TRANSITIONS,
+)
 from app.storage import get_storage
 
 
@@ -58,10 +62,10 @@ def create_appointment(data: AppointmentCreate) -> dict:
     """
     dump = data.model_dump()
     # Convert datetime to ISO string for SQL storage
-    if isinstance(dump["date_time"], datetime):
-        dump["date_time"] = dump["date_time"].isoformat()
+    if isinstance(dump.get("datetime"), datetime):
+        dump["datetime"] = dump["datetime"].isoformat()
     # Convert enum to plain string value
-    if hasattr(dump["status"], "value"):
+    if hasattr(dump.get("status"), "value"):
         dump["status"] = dump["status"].value
     return get_storage().insert_appointment(**dump)
 
@@ -97,12 +101,33 @@ def get_all_appointments(
 def update_appointment(
     appointment_id: int, data: AppointmentUpdate
 ) -> dict | None:
-    """Partially update an appointment. Returns updated dict or None."""
+    """Partially update an appointment. Returns updated dict or None.
+
+    Validates status transitions: completed and cancelled appointments
+    cannot transition back to other states.
+    """
     updates = data.model_dump(exclude_unset=True)
     if not updates:
         return get_storage().get_appointment(appointment_id)
-    if "date_time" in updates and isinstance(updates["date_time"], datetime):
-        updates["date_time"] = updates["date_time"].isoformat()
+
+    # Validate status transition if status is being changed
+    if "status" in updates:
+        existing = get_storage().get_appointment(appointment_id)
+        if existing is None:
+            return None
+        current_status = existing.get("status", "")
+        if hasattr(current_status, "value"):
+            current_status = current_status.value
+        new_status = updates["status"]
+        if hasattr(new_status, "value"):
+            new_status = new_status.value
+        if current_status != new_status:
+            allowed = VALID_STATUS_TRANSITIONS.get(current_status, set())
+            if new_status not in allowed:
+                return None
+
+    if "datetime" in updates and isinstance(updates["datetime"], datetime):
+        updates["datetime"] = updates["datetime"].isoformat()
     if "status" in updates and hasattr(updates["status"], "value"):
         updates["status"] = updates["status"].value
     return get_storage().update_appointment(appointment_id, **updates)

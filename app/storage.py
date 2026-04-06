@@ -6,7 +6,8 @@ appointments tables.  Uses integer primary keys throughout.
 """
 
 import sqlite3
-from datetime import datetime, timedelta
+from datetime import datetime as _dt
+from datetime import timedelta
 
 from app.migrations import run_migrations
 
@@ -58,7 +59,7 @@ class SQLStorage:
         updated_at: str = "",
     ) -> dict:
         """Insert a new patient row and return the full record."""
-        now = created_at or datetime.utcnow().isoformat()
+        now = created_at or _dt.utcnow().isoformat()
         updated = updated_at or now
         cursor = self._conn.execute(
             """INSERT INTO patients
@@ -97,7 +98,7 @@ class SQLStorage:
         existing = self.get_patient(patient_id)
         if existing is None:
             return None
-        fields["updated_at"] = datetime.utcnow().isoformat()
+        fields["updated_at"] = _dt.utcnow().isoformat()
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [patient_id]
         self._conn.execute(
@@ -128,27 +129,28 @@ class SQLStorage:
     def insert_appointment(
         self,
         patient_id: int,
-        date_time: str,
-        appointment_type: str,
+        doctor_name: str = "",
         status: str = "scheduled",
-        duration_minutes: int = 30,
+        notes: str = "",
         created_at: str = "",
         updated_at: str = "",
+        **kwargs: object,
     ) -> dict:
         """Insert a new appointment and return the full record (integer id)."""
-        now = created_at or datetime.utcnow().isoformat()
+        appt_datetime = str(kwargs.get("datetime", ""))
+        now = created_at or _dt.utcnow().isoformat()
         updated = updated_at or now
         cursor = self._conn.execute(
             """INSERT INTO appointments
-               (patient_id, date_time, appointment_type, status,
-                duration_minutes, created_at, updated_at)
+               (patient_id, doctor_name, datetime, status,
+                notes, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?, ?, ?)""",
             (
                 patient_id,
-                date_time,
-                appointment_type,
+                doctor_name,
+                appt_datetime,
                 status,
-                duration_minutes,
+                notes,
                 now,
                 updated,
             ),
@@ -206,15 +208,15 @@ class SQLStorage:
             query += " AND patient_id = ?"
             params.append(patient_id)
         if date_from is not None:
-            query += " AND date_time >= ?"
+            query += " AND datetime >= ?"
             params.append(date_from)
         if date_to is not None:
-            query += " AND date_time <= ?"
+            query += " AND datetime <= ?"
             params.append(date_to)
         if status is not None:
             query += " AND status = ?"
             params.append(status)
-        query += " ORDER BY date_time"
+        query += " ORDER BY datetime"
         rows = self._conn.execute(query, params).fetchall()
         return [dict(r) for r in rows]
 
@@ -231,11 +233,11 @@ class SQLStorage:
         patient_id and non-cancelled status, then performs time-overlap
         detection.  Cancelled appointments are ignored.
         """
-        new_start = datetime.fromisoformat(date_time)
+        new_start = _dt.fromisoformat(date_time)
         new_end = new_start + timedelta(minutes=duration_minutes)
 
         query = """
-            SELECT id, date_time, duration_minutes FROM appointments
+            SELECT id, datetime FROM appointments
             WHERE patient_id = ?
               AND status != 'cancelled'
         """
@@ -246,10 +248,8 @@ class SQLStorage:
 
         rows = self._conn.execute(query, params).fetchall()
         for row in rows:
-            existing_start = datetime.fromisoformat(row["date_time"])
-            existing_end = existing_start + timedelta(
-                minutes=row["duration_minutes"]
-            )
+            existing_start = _dt.fromisoformat(row["datetime"])
+            existing_end = existing_start + timedelta(minutes=30)
             if new_start < existing_end and existing_start < new_end:
                 return True
         return False
@@ -261,7 +261,7 @@ class SQLStorage:
         existing = self.get_appointment(appointment_id)
         if existing is None:
             return None
-        fields["updated_at"] = datetime.utcnow().isoformat()
+        fields["updated_at"] = _dt.utcnow().isoformat()
         set_clause = ", ".join(f"{k} = ?" for k in fields)
         values = list(fields.values()) + [appointment_id]
         self._conn.execute(
@@ -308,10 +308,10 @@ class SQLStorage:
         query = "SELECT status, COUNT(*) as count FROM appointments WHERE 1=1"
         params: list[str] = []
         if date_from is not None:
-            query += " AND date_time >= ?"
+            query += " AND datetime >= ?"
             params.append(date_from)
         if date_to is not None:
-            query += " AND date_time <= ?"
+            query += " AND datetime <= ?"
             params.append(date_to)
         query += " GROUP BY status"
         rows = self.execute(query, params).fetchall()
@@ -326,7 +326,7 @@ class SQLStorage:
         ).fetchall()
 
         appointment_rows = self.execute(
-            "SELECT a.id, a.appointment_type, a.status, a.created_at, "
+            "SELECT a.id, a.doctor_name, a.status, a.created_at, "
             "p.first_name, p.last_name "
             "FROM appointments a JOIN patients p ON a.patient_id = p.id "
             "ORDER BY a.created_at DESC LIMIT ?",
@@ -340,13 +340,13 @@ class SQLStorage:
 
     def get_upcoming_appointments(self) -> list[dict]:
         """Get appointments scheduled in the future with patient info."""
-        now = datetime.utcnow().isoformat()
+        now = _dt.utcnow().isoformat()
         rows = self.execute(
             """SELECT a.*, p.first_name, p.last_name
                FROM appointments a
                JOIN patients p ON a.patient_id = p.id
-               WHERE a.date_time > ? AND a.status = 'scheduled'
-               ORDER BY a.date_time""",
+               WHERE a.datetime > ? AND a.status = 'scheduled'
+               ORDER BY a.datetime""",
             (now,),
         ).fetchall()
         return [dict(r) for r in rows]
@@ -363,7 +363,7 @@ class SQLStorage:
 
     def get_dashboard_stats(self) -> dict:
         """Get aggregated dashboard statistics with SQL aggregations."""
-        now = datetime.utcnow()
+        now = _dt.utcnow()
         first_of_month = now.replace(
             day=1, hour=0, minute=0, second=0, microsecond=0
         )
@@ -379,7 +379,7 @@ class SQLStorage:
         ).fetchone()[0]
 
         appointments_today = self.execute(
-            "SELECT COUNT(*) FROM appointments WHERE date(date_time) = ?",
+            "SELECT COUNT(*) FROM appointments WHERE date(datetime) = ?",
             (today,),
         ).fetchone()[0]
 
