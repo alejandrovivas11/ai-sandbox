@@ -1,15 +1,14 @@
 """Service layer for patient business logic."""
 
-import uuid
 from datetime import datetime, timedelta
 
 from app.models.patient import PatientCreate, PatientUpdate
-from app.storage import patients_db
+from app.storage import next_patient_id, patients_db
 
 
 def create_patient(data: PatientCreate) -> dict:
     """Create a new patient, store in memory, and return the full record."""
-    patient_id = str(uuid.uuid4())
+    patient_id = next_patient_id()
     now = datetime.utcnow()
     patient = {
         "id": patient_id,

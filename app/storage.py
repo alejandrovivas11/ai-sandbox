@@ -21,8 +21,19 @@ class Storage(dict):
 patients_db: Storage = Storage()
 appointments_db: Storage = Storage()
 
+_patient_id_counter: int = 0
+
+
+def next_patient_id() -> int:
+    """Return the next sequential integer patient id."""
+    global _patient_id_counter
+    _patient_id_counter += 1
+    return _patient_id_counter
+
 
 def reset() -> None:
     """Clear all in-memory data stores. Uses .clear() to preserve references."""
+    global _patient_id_counter
     patients_db.clear()
     appointments_db.clear()
+    _patient_id_counter = 0

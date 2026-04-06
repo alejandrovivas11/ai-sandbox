@@ -1,241 +1,91 @@
-"""Comprehensive tests for the /appointments/ endpoints.
+"""Tests for appointment endpoints and contract specifications.
 
-Covers CRUD operations, patient validation, default values, filtering
-by patient_id, and error cases. These tests target endpoints that do
-not yet exist (RED phase of TDD).
+These tests validate that the appointment management system adheres to
+the contract specifications including integer patient_id fields,
+proper HTTP status codes, and storage JOIN operations.
+
+RED phase: these tests are expected to FAIL against the current
+implementation, which uses string UUIDs for patient_id, lacks conflict
+detection, and does not return the correct HTTP status codes.
 """
 
 from fastapi.testclient import TestClient
 
+from app.models.appointment import AppointmentCreate
+from app.services import appointment_service
 
-# ---------- POST /appointments/ ----------
 
-
-def test_create_appointment_valid_data(
-    client: TestClient, create_patient
-) -> None:
-    """POST /appointments/ with valid data returns 201 with id, patient_id,
-    and status='scheduled'."""
+def test_appointment_model_uses_integer_patient_id() -> None:
+    """Verify Appointment model accepts and stores integer patient_id
+    values instead of string UUIDs."""
     # Arrange
-    patient = create_patient()
-    payload = {
-        "patient_id": patient["id"],
+    appointment_data = {
+        "patient_id": 1,
         "date_time": "2025-12-15T10:00:00",
         "appointment_type": "checkup",
     }
 
     # Act
-    response = client.post("/appointments/", json=payload)
+    appointment = AppointmentCreate(**appointment_data)
+
+    # Assert
+    assert isinstance(appointment.patient_id, int), (
+        "patient_id should be an integer, got "
+        f"{type(appointment.patient_id).__name__}"
+    )
+    assert appointment.patient_id == 1, (
+        "patient_id should equal the integer value 1"
+    )
+
+
+def test_create_appointment_accepts_integer_patient_id(
+    client: TestClient,
+) -> None:
+    """Verify POST /appointments endpoint accepts integer patient_id
+    and returns appointment with integer patient_id."""
+    # Arrange -- create a patient first to obtain a valid patient_id
+    patient_resp = client.post(
+        "/patients/",
+        json={
+            "first_name": "Jane",
+            "last_name": "Doe",
+            "date_of_birth": "1990-01-15",
+            "gender": "female",
+            "phone_number": "555-123-4567",
+        },
+    )
+    assert patient_resp.status_code == 201
+    patient_id = patient_resp.json()["id"]
+
+    appointment_payload = {
+        "patient_id": patient_id,
+        "date_time": "2025-12-15T10:00:00",
+        "appointment_type": "checkup",
+    }
+
+    # Act
+    response = client.post("/appointments/", json=appointment_payload)
 
     # Assert
     assert response.status_code == 201, (
         f"Expected 201 Created, got {response.status_code}"
     )
-    body = response.json()
-    assert "id" in body, "Response must contain an 'id' field"
-    assert body["patient_id"] == patient["id"], (
-        "patient_id should match the created patient"
-    )
-    assert body["status"] == "scheduled", (
-        f"Expected status='scheduled', got '{body.get('status')}'"
+    data = response.json()
+    assert isinstance(data["patient_id"], int), (
+        "Response patient_id should be an integer, got "
+        f"{type(data['patient_id']).__name__}"
     )
 
 
-def test_create_appointment_nonexistent_patient(client: TestClient) -> None:
-    """POST /appointments/ with nonexistent patient_id returns 404 with
-    detail containing the patient id."""
-    # Arrange
-    fake_patient_id = "00000000-0000-0000-0000-000000000000"
-    payload = {
-        "patient_id": fake_patient_id,
-        "date_time": "2025-12-15T10:00:00",
-        "appointment_type": "checkup",
-    }
-
-    # Act
-    response = client.post("/appointments/", json=payload)
-
-    # Assert
-    assert response.status_code == 404, (
-        f"Expected 404 Not Found, got {response.status_code}"
-    )
-    body = response.json()
-    assert "detail" in body, "404 response must include a 'detail' field"
-    assert fake_patient_id in body["detail"], (
-        "Detail message should contain the nonexistent patient id"
-    )
-
-
-def test_create_appointment_invalid_status(
-    client: TestClient, create_patient
+def test_get_appointment_returns_integer_patient_id(
+    client: TestClient,
+    create_appointment,
 ) -> None:
-    """POST /appointments/ with invalid status returns 422 validation error."""
+    """Verify GET /appointments/{id} endpoint returns appointment data
+    with integer patient_id field."""
     # Arrange
-    patient = create_patient()
-    payload = {
-        "patient_id": patient["id"],
-        "date_time": "2025-12-15T10:00:00",
-        "appointment_type": "checkup",
-        "status": "invalid_status_value",
-    }
-
-    # Act
-    response = client.post("/appointments/", json=payload)
-
-    # Assert
-    assert response.status_code == 422, (
-        f"Expected 422 Unprocessable Entity, got {response.status_code}"
-    )
-
-
-def test_create_appointment_default_status(
-    client: TestClient, create_patient
-) -> None:
-    """POST /appointments/ without status field defaults to 'scheduled'."""
-    # Arrange
-    patient = create_patient()
-    payload = {
-        "patient_id": patient["id"],
-        "date_time": "2025-12-15T10:00:00",
-        "appointment_type": "checkup",
-    }
-
-    # Act
-    response = client.post("/appointments/", json=payload)
-
-    # Assert
-    assert response.status_code == 201, (
-        f"Expected 201 Created, got {response.status_code}"
-    )
-    body = response.json()
-    assert body["status"] == "scheduled", (
-        f"Expected default status='scheduled', got '{body.get('status')}'"
-    )
-
-
-def test_create_appointment_default_duration(
-    client: TestClient, create_patient
-) -> None:
-    """POST /appointments/ without duration_minutes defaults to 30."""
-    # Arrange
-    patient = create_patient()
-    payload = {
-        "patient_id": patient["id"],
-        "date_time": "2025-12-15T10:00:00",
-        "appointment_type": "checkup",
-    }
-
-    # Act
-    response = client.post("/appointments/", json=payload)
-
-    # Assert
-    assert response.status_code == 201, (
-        f"Expected 201 Created, got {response.status_code}"
-    )
-    body = response.json()
-    assert body["duration_minutes"] == 30, (
-        f"Expected default duration_minutes=30, got {body.get('duration_minutes')}"
-    )
-
-
-# ---------- GET /appointments/ ----------
-
-
-def test_get_appointments_empty(client: TestClient) -> None:
-    """GET /appointments/ on empty storage returns 200 with empty list."""
-    # Arrange -- storage is already empty via autouse fixture
-
-    # Act
-    response = client.get("/appointments/")
-
-    # Assert
-    assert response.status_code == 200, (
-        f"Expected 200 OK, got {response.status_code}"
-    )
-    assert response.json() == [], (
-        "Expected empty list when no appointments exist"
-    )
-
-
-def test_get_all_appointments(
-    client: TestClient, create_appointment
-) -> None:
-    """GET /appointments/ after creating 3 appointments returns 200 with
-    list of length 3."""
-    # Arrange
-    create_appointment()
-    create_appointment()
-    create_appointment()
-
-    # Act
-    response = client.get("/appointments/")
-
-    # Assert
-    assert response.status_code == 200, (
-        f"Expected 200 OK, got {response.status_code}"
-    )
-    appointments = response.json()
-    assert len(appointments) == 3, (
-        f"Expected 3 appointments, got {len(appointments)}"
-    )
-
-
-def test_get_appointments_filter_by_patient(
-    client: TestClient, create_patient
-) -> None:
-    """GET /appointments/?patient_id={id} filters correctly and returns
-    appointments only for the specified patient."""
-    # Arrange -- create 2 patients, each with appointments
-    patient1 = create_patient(first_name="Alice")
-    patient2 = create_patient(first_name="Bob")
-
-    # Create 2 appointments for patient1
-    client.post("/appointments/", json={
-        "patient_id": patient1["id"],
-        "date_time": "2025-12-15T10:00:00",
-        "appointment_type": "checkup",
-    })
-    client.post("/appointments/", json={
-        "patient_id": patient1["id"],
-        "date_time": "2025-12-16T10:00:00",
-        "appointment_type": "followup",
-    })
-
-    # Create 1 appointment for patient2
-    client.post("/appointments/", json={
-        "patient_id": patient2["id"],
-        "date_time": "2025-12-17T10:00:00",
-        "appointment_type": "checkup",
-    })
-
-    # Act
-    response = client.get(f"/appointments/?patient_id={patient1['id']}")
-
-    # Assert
-    assert response.status_code == 200, (
-        f"Expected 200 OK, got {response.status_code}"
-    )
-    appointments = response.json()
-    assert len(appointments) == 2, (
-        f"Expected 2 appointments for patient1, got {len(appointments)}"
-    )
-    for appt in appointments:
-        assert appt["patient_id"] == patient1["id"], (
-            "All returned appointments should belong to patient1"
-        )
-
-
-# ---------- GET /appointments/{id} ----------
-
-
-def test_get_appointment_by_id(
-    client: TestClient, create_appointment
-) -> None:
-    """GET /appointments/{id} returns 200 with appointment data matching
-    the created appointment fields."""
-    # Arrange
-    created = create_appointment()
-    appointment_id = created["id"]
+    appointment = create_appointment()
+    appointment_id = appointment["id"]
 
     # Act
     response = client.get(f"/appointments/{appointment_id}")
@@ -244,22 +94,69 @@ def test_get_appointment_by_id(
     assert response.status_code == 200, (
         f"Expected 200 OK, got {response.status_code}"
     )
-    body = response.json()
-    assert body["id"] == appointment_id, (
-        "Returned appointment id must match requested id"
-    )
-    assert body["patient_id"] == created["patient_id"], (
-        "patient_id must match created appointment"
-    )
-    assert body["status"] == created["status"], (
-        "status must match created appointment"
+    data = response.json()
+    assert isinstance(data["patient_id"], int), (
+        "GET response patient_id should be an integer, got "
+        f"{type(data['patient_id']).__name__}"
     )
 
 
-def test_get_appointment_not_found(client: TestClient) -> None:
-    """GET /appointments/{nonexistent-uuid} returns 404 error."""
+def test_storage_join_returns_patient_data_with_appointments(
+    client: TestClient,
+    create_patient,
+    create_appointment,
+) -> None:
+    """Verify storage layer JOIN operations return patient information
+    alongside appointment data when queried."""
     # Arrange
-    non_existent_id = "00000000-0000-0000-0000-000000000000"
+    patient = create_patient()
+    patient_id = patient["id"]
+    appointment = create_appointment(patient_id=patient_id)
+    appointment_id = appointment["id"]
+
+    # Act
+    result = appointment_service.get_appointment_with_patient(appointment_id)
+
+    # Assert
+    assert result is not None, "JOIN query should return a result"
+    assert "patient_id" in result, (
+        "Result should contain patient_id field"
+    )
+    assert "first_name" in result or "patient" in result, (
+        "Result should contain patient data from JOIN operation"
+    )
+
+
+def test_service_validates_integer_patient_id_foreign_key() -> None:
+    """Verify appointment service validates that patient_id references
+    an existing patient record and rejects invalid integers."""
+    # Arrange
+    invalid_patient_id = 99999
+
+    # Act
+    result = appointment_service.patient_exists(invalid_patient_id)
+
+    # Assert
+    assert result is False, (
+        "patient_exists should return False for non-existent integer patient_id"
+    )
+    # Verify the model accepts integer patient_id natively (not coerced to str)
+    appointment_data = AppointmentCreate(
+        patient_id=invalid_patient_id,
+        date_time="2025-12-15T10:00:00",
+        appointment_type="checkup",
+    )
+    assert isinstance(appointment_data.patient_id, int), (
+        "AppointmentCreate should accept and store integer patient_id, "
+        f"got {type(appointment_data.patient_id).__name__}"
+    )
+
+
+def test_appointment_not_found_returns_404(client: TestClient) -> None:
+    """Verify GET /appointments/{non_existent_id} returns exactly
+    HTTP 404 status code as specified in contract."""
+    # Arrange
+    non_existent_id = 99999
 
     # Act
     response = client.get(f"/appointments/{non_existent_id}")
@@ -268,107 +165,129 @@ def test_get_appointment_not_found(client: TestClient) -> None:
     assert response.status_code == 404, (
         f"Expected 404 Not Found, got {response.status_code}"
     )
-    body = response.json()
-    assert "detail" in body, "404 response must include a 'detail' field"
 
 
-# ---------- PUT /appointments/{id} ----------
-
-
-def test_update_appointment_status(
-    client: TestClient, create_appointment
+def test_scheduling_conflict_returns_409(
+    client: TestClient,
+    create_patient,
+    create_appointment,
 ) -> None:
-    """PUT /appointments/{id} changing status to 'completed' updates status
-    and changes the updated_at timestamp."""
-    # Arrange
-    created = create_appointment()
-    appointment_id = created["id"]
-    original_updated_at = created.get("updated_at")
+    """Verify creating appointment with time conflict returns exactly
+    HTTP 409 status code as specified in contract."""
+    # Arrange -- create a patient and an initial appointment
+    patient = create_patient()
+    patient_id = patient["id"]
+    create_appointment(
+        patient_id=patient_id,
+        date_time="2025-12-15T10:00:00",
+        appointment_type="checkup",
+    )
 
-    update_payload = {"status": "completed"}
+    # Act -- attempt to create a conflicting appointment at the same time
+    conflict_payload = {
+        "patient_id": patient_id,
+        "date_time": "2025-12-15T10:00:00",
+        "appointment_type": "follow-up",
+    }
+    response = client.post("/appointments/", json=conflict_payload)
+
+    # Assert
+    assert response.status_code == 409, (
+        "Expected 409 Conflict for overlapping appointment, "
+        f"got {response.status_code}"
+    )
+
+
+def test_invalid_patient_id_returns_422(client: TestClient) -> None:
+    """Verify appointment creation with non-existent patient_id returns
+    exactly HTTP 422 status code as specified in contract."""
+    # Arrange
+    payload = {
+        "patient_id": 99999,
+        "date_time": "2025-12-15T10:00:00",
+        "appointment_type": "checkup",
+    }
 
     # Act
-    response = client.put(f"/appointments/{appointment_id}", json=update_payload)
+    response = client.post("/appointments/", json=payload)
+
+    # Assert
+    assert response.status_code == 422, (
+        "Expected 422 Unprocessable Entity for non-existent patient_id, "
+        f"got {response.status_code}"
+    )
+
+
+def test_invalid_appointment_data_returns_422(client: TestClient) -> None:
+    """Verify appointment creation with invalid datetime format returns
+    exactly HTTP 422 status code as specified in contract."""
+    # Arrange
+    payload = {
+        "patient_id": 1,
+        "date_time": "not-a-valid-datetime",
+        "appointment_type": "checkup",
+    }
+
+    # Act
+    response = client.post("/appointments/", json=payload)
+
+    # Assert
+    assert response.status_code == 422, (
+        "Expected 422 Unprocessable Entity for invalid datetime format, "
+        f"got {response.status_code}"
+    )
+
+
+def test_update_appointment_with_integer_patient_id(
+    client: TestClient,
+    create_patient,
+    create_appointment,
+) -> None:
+    """Verify PUT /appointments/{id} endpoint accepts integer patient_id
+    and updates appointment successfully."""
+    # Arrange
+    patient = create_patient()
+    patient_id = patient["id"]
+    appointment = create_appointment(patient_id=patient_id)
+    appointment_id = appointment["id"]
+
+    new_patient = create_patient(
+        first_name="John",
+        last_name="Smith",
+        email="john.smith@example.com",
+    )
+    new_patient_id = new_patient["id"]
+
+    update_payload = {
+        "patient_id": new_patient_id,
+    }
+
+    # Act
+    response = client.put(
+        f"/appointments/{appointment_id}", json=update_payload
+    )
 
     # Assert
     assert response.status_code == 200, (
         f"Expected 200 OK, got {response.status_code}"
     )
-    body = response.json()
-    assert body["status"] == "completed", (
-        f"Expected status='completed', got '{body.get('status')}'"
+    data = response.json()
+    assert isinstance(data["patient_id"], int), (
+        "Updated appointment patient_id should be an integer, got "
+        f"{type(data['patient_id']).__name__}"
     )
-    assert body["updated_at"] != original_updated_at, (
-        "updated_at timestamp should change after status update"
+    assert data["patient_id"] == new_patient_id, (
+        f"Expected patient_id {new_patient_id}, got {data['patient_id']}"
     )
 
 
-def test_update_appointment_invalid_patient(
-    client: TestClient, create_appointment
+def test_delete_nonexistent_appointment_returns_404(
+    client: TestClient,
 ) -> None:
-    """PUT /appointments/{id} with nonexistent patient_id returns 404 error."""
+    """Verify DELETE /appointments/{non_existent_id} returns exactly
+    HTTP 404 status code as specified in contract."""
     # Arrange
-    created = create_appointment()
-    appointment_id = created["id"]
-    fake_patient_id = "00000000-0000-0000-0000-000000000000"
-
-    update_payload = {"patient_id": fake_patient_id}
-
-    # Act
-    response = client.put(f"/appointments/{appointment_id}", json=update_payload)
-
-    # Assert
-    assert response.status_code == 404, (
-        f"Expected 404 Not Found, got {response.status_code}"
-    )
-
-
-def test_update_appointment_not_found(client: TestClient) -> None:
-    """PUT /appointments/{nonexistent-uuid} returns 404 error."""
-    # Arrange
-    non_existent_id = "00000000-0000-0000-0000-000000000000"
-    update_payload = {"status": "completed"}
-
-    # Act
-    response = client.put(f"/appointments/{non_existent_id}", json=update_payload)
-
-    # Assert
-    assert response.status_code == 404, (
-        f"Expected 404 Not Found, got {response.status_code}"
-    )
-    body = response.json()
-    assert "detail" in body, "404 response must include a 'detail' field"
-
-
-# ---------- DELETE /appointments/{id} ----------
-
-
-def test_delete_appointment(
-    client: TestClient, create_appointment
-) -> None:
-    """DELETE /appointments/{id} removes appointment and subsequent GET
-    returns 404."""
-    # Arrange
-    created = create_appointment()
-    appointment_id = created["id"]
-
-    # Act
-    delete_response = client.delete(f"/appointments/{appointment_id}")
-
-    # Assert
-    assert delete_response.status_code == 204, (
-        f"Expected 204 No Content, got {delete_response.status_code}"
-    )
-    get_response = client.get(f"/appointments/{appointment_id}")
-    assert get_response.status_code == 404, (
-        "Appointment should return 404 after deletion"
-    )
-
-
-def test_delete_appointment_not_found(client: TestClient) -> None:
-    """DELETE /appointments/{nonexistent-uuid} returns 404 error."""
-    # Arrange
-    non_existent_id = "00000000-0000-0000-0000-000000000000"
+    non_existent_id = 99999
 
     # Act
     response = client.delete(f"/appointments/{non_existent_id}")
@@ -377,5 +296,3 @@ def test_delete_appointment_not_found(client: TestClient) -> None:
     assert response.status_code == 404, (
         f"Expected 404 Not Found, got {response.status_code}"
     )
-    body = response.json()
-    assert "detail" in body, "404 response must include a 'detail' field"

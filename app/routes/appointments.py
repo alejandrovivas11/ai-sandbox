@@ -19,14 +19,21 @@ def create_appointment(data: AppointmentCreate) -> dict:
     """Create a new appointment after validating the patient exists."""
     if not appointment_service.patient_exists(data.patient_id):
         raise HTTPException(
-            status_code=404,
+            status_code=422,
             detail=f"Patient {data.patient_id} not found",
+        )
+    if appointment_service.has_scheduling_conflict(
+        data.patient_id, data.date_time, data.duration_minutes
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="Scheduling conflict: overlapping appointment exists",
         )
     return appointment_service.create_appointment(data)
 
 
 @router.get("/", response_model=list[AppointmentResponse])
-def get_appointments(patient_id: str | None = None) -> list[dict]:
+def get_appointments(patient_id: int | None = None) -> list[dict]:
     """Return all appointments, optionally filtered by patient_id."""
     return appointment_service.get_all_appointments(patient_id=patient_id)
 
