@@ -1,63 +1,113 @@
 """Service layer for appointment business logic."""
 
-import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 
 from app.models.appointment import AppointmentCreate, AppointmentUpdate
-from app.storage import appointments_db, patients_db
+from app.storage import get_storage
 
 
-def patient_exists(patient_id: str) -> bool:
+def patient_exists(patient_id: int) -> bool:
     """Check whether a patient exists in storage."""
-    return patient_id in patients_db
+    return get_storage().patient_exists(patient_id)
+
+
+def validate_patient_exists(patient_id: int) -> bool:
+    """Validate that a patient record exists for the given integer ID.
+
+    Returns True when the patient exists, False otherwise.
+    """
+    return get_storage().patient_exists(patient_id)
+
+
+def validate_scheduling_conflict(
+    patient_id: int,
+    date_time: datetime,
+    duration_minutes: int,
+    exclude_appointment_id: int | None = None,
+) -> bool:
+    """Return True if creating / updating an appointment would cause a
+    scheduling conflict with an existing non-cancelled appointment."""
+    dt_str = (
+        date_time.isoformat() if isinstance(date_time, datetime) else date_time
+    )
+    return get_storage().has_scheduling_conflict(
+        patient_id, dt_str, duration_minutes, exclude_appointment_id
+    )
+
+
+def has_scheduling_conflict(
+    patient_id: int,
+    date_time: datetime,
+    duration_minutes: int,
+    exclude_appointment_id: int | None = None,
+) -> bool:
+    """Check whether a new appointment would overlap with an existing one
+    for the same patient.  Cancelled appointments are ignored."""
+    dt_str = (
+        date_time.isoformat() if isinstance(date_time, datetime) else date_time
+    )
+    return get_storage().has_scheduling_conflict(
+        patient_id, dt_str, duration_minutes, exclude_appointment_id
+    )
 
 
 def create_appointment(data: AppointmentCreate) -> dict:
-    """Create a new appointment, store in memory, and return the full record."""
-    appointment_id = str(uuid.uuid4())
-    now = datetime.utcnow()
-    appointment = {
-        "id": appointment_id,
-        **data.model_dump(),
-        "created_at": now,
-        "updated_at": now,
-    }
-    appointments_db[appointment_id] = appointment
-    return appointment
+    """Create a new appointment, store it, and return the full record.
+
+    Returns an integer appointment ID instead of a string UUID.
+    """
+    dump = data.model_dump()
+    # Convert datetime to ISO string for SQL storage
+    if isinstance(dump["date_time"], datetime):
+        dump["date_time"] = dump["date_time"].isoformat()
+    # Convert enum to plain string value
+    if hasattr(dump["status"], "value"):
+        dump["status"] = dump["status"].value
+    return get_storage().insert_appointment(**dump)
 
 
-def get_appointment(appointment_id: str) -> dict | None:
-    """Return an appointment dict by id, or None if not found."""
-    return appointments_db.get(appointment_id)
+def get_appointment(appointment_id: int) -> dict | None:
+    """Return an appointment dict by integer id, or None if not found."""
+    return get_storage().get_appointment(appointment_id)
 
 
-def get_all_appointments(patient_id: str | None = None) -> list[dict]:
-    """Return all appointments, optionally filtered by patient_id."""
-    appointments = list(appointments_db.values())
-    if patient_id is not None:
-        appointments = [
-            a for a in appointments if a.get("patient_id") == patient_id
-        ]
-    return appointments
+def get_appointment_with_patient(appointment_id: int) -> dict | None:
+    """Return an appointment dict merged with its patient data (JOIN).
+
+    Returns None if the appointment does not exist.
+    """
+    return get_storage().get_appointment_with_patient(appointment_id)
+
+
+def get_all_appointments(
+    patient_id: int | None = None,
+    date_from: str | None = None,
+    date_to: str | None = None,
+    status: str | None = None,
+) -> list[dict]:
+    """Return all appointments, with optional filters."""
+    return get_storage().get_all_appointments(
+        patient_id=patient_id,
+        date_from=date_from,
+        date_to=date_to,
+        status=status,
+    )
 
 
 def update_appointment(
-    appointment_id: str, data: AppointmentUpdate
+    appointment_id: int, data: AppointmentUpdate
 ) -> dict | None:
     """Partially update an appointment. Returns updated dict or None."""
-    appointment = appointments_db.get(appointment_id)
-    if appointment is None:
-        return None
     updates = data.model_dump(exclude_unset=True)
-    for key, value in updates.items():
-        appointment[key] = value
-    now = datetime.utcnow()
-    if appointment.get("updated_at") and now <= appointment["updated_at"]:
-        now = appointment["updated_at"] + timedelta(microseconds=1)
-    appointment["updated_at"] = now
-    return appointment
+    if not updates:
+        return get_storage().get_appointment(appointment_id)
+    if "date_time" in updates and isinstance(updates["date_time"], datetime):
+        updates["date_time"] = updates["date_time"].isoformat()
+    if "status" in updates and hasattr(updates["status"], "value"):
+        updates["status"] = updates["status"].value
+    return get_storage().update_appointment(appointment_id, **updates)
 
 
-def delete_appointment(appointment_id: str) -> bool:
+def delete_appointment(appointment_id: int) -> bool:
     """Remove an appointment. Returns True if deleted, False if not found."""
-    return appointments_db.pop(appointment_id, None) is not None
+    return get_storage().delete_appointment(appointment_id)

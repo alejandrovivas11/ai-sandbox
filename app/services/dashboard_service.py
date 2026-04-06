@@ -2,21 +2,24 @@
 
 from datetime import datetime
 
-from app import storage
+from app.storage import get_storage
 
 
 def get_dashboard_metrics() -> dict:
-    """Compute aggregated dashboard metrics from in-memory data stores.
+    """Compute aggregated dashboard metrics from the SQL storage layer.
 
-    Iterates over appointments_db.values() exactly once to compute all
-    appointment-based metrics. Handles date_time being either a datetime
-    object or an ISO-format string, and status being either an enum or a
-    plain string.
+    Iterates over all appointments once to compute appointment-based
+    metrics.  Handles date_time being either a datetime object or an
+    ISO-format string, and status being either an enum or a plain string.
 
     Returns a dict with six integer keys.
     """
-    total_patients: int = len(storage.patients_db)
-    total_appointments: int = len(storage.appointments_db)
+    storage = get_storage()
+    patients = storage.get_all_patients()
+    appointments = storage.get_all_appointments()
+
+    total_patients: int = len(patients)
+    total_appointments: int = len(appointments)
 
     now: datetime = datetime.utcnow()
     today = now.date()
@@ -24,9 +27,9 @@ def get_dashboard_metrics() -> dict:
     upcoming_count: int = 0
     completed_count: int = 0
     cancelled_count: int = 0
-    seen_today_patient_ids: set[str] = set()
+    seen_today_patient_ids: set[int] = set()
 
-    for appt in storage.appointments_db.values():
+    for appt in appointments:
         # Normalize date_time: handle both datetime objects and ISO strings
         dt = appt.get("date_time")
         if isinstance(dt, str):

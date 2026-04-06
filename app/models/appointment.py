@@ -17,7 +17,7 @@ class AppointmentStatus(str, Enum):
 class AppointmentCreate(BaseModel):
     """Schema for creating a new appointment."""
 
-    patient_id: str
+    patient_id: int
     date_time: datetime
     appointment_type: str
     status: AppointmentStatus = AppointmentStatus.scheduled
@@ -27,7 +27,7 @@ class AppointmentCreate(BaseModel):
 class AppointmentUpdate(BaseModel):
     """Schema for partially updating an existing appointment."""
 
-    patient_id: str | None = None
+    patient_id: int | None = None
     date_time: datetime | None = None
     appointment_type: str | None = None
     status: AppointmentStatus | None = None
@@ -39,8 +39,8 @@ class AppointmentResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
-    patient_id: str
+    id: int
+    patient_id: int
     date_time: datetime
     appointment_type: str
     status: AppointmentStatus

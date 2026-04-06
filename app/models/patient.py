@@ -34,7 +34,7 @@ class PatientResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
-    id: str
+    id: int
     first_name: str
     last_name: str
     date_of_birth: date
