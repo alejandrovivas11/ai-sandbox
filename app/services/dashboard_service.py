@@ -103,6 +103,77 @@ def get_dashboard_metrics() -> dict:
     }
 
 
+def get_patient_count() -> int:
+    """Return the total patient count using an optimized SQL aggregation."""
+    storage = get_storage()
+    return storage.count_patients_by_period()
+
+
+def get_status_distribution() -> dict[str, int]:
+    """Return appointment counts grouped by status."""
+    storage = get_storage()
+    return storage.count_appointments_by_status()
+
+
+def get_metrics_by_date_range(start_date: str, end_date: str) -> dict:
+    """Compute dashboard metrics filtered to a specific date range.
+
+    Filters patients by created_at and appointments by datetime within
+    the given [start_date, end_date] window.  Returns zero counts when
+    no data exists in the range.
+    """
+    storage = get_storage()
+    total_patients = storage.count_patients_by_period(start_date, end_date)
+    status_counts = storage.count_appointments_by_status(start_date, end_date)
+    total_appointments = sum(status_counts.values())
+    upcoming = storage.get_upcoming_appointments()
+
+    return {
+        "total_patients": total_patients,
+        "total_appointments": total_appointments,
+        "status_counts": {
+            "scheduled": status_counts.get("scheduled", 0),
+            "completed": status_counts.get("completed", 0),
+            "cancelled": status_counts.get("cancelled", 0),
+        },
+        "upcoming_appointments": upcoming,
+    }
+
+
+def get_filtered_dashboard_metrics(
+    start_date: str | None = None,
+    end_date: str | None = None,
+) -> dict:
+    """Compute dashboard metrics with optional date range filtering.
+
+    When start_date/end_date are provided, filters appointments to that
+    window.  Otherwise returns totals across all data.
+    """
+    storage = get_storage()
+
+    if start_date is not None or end_date is not None:
+        return get_metrics_by_date_range(
+            start_date=start_date or "0000-01-01",
+            end_date=end_date or "9999-12-31",
+        )
+
+    patients = storage.get_all_patients()
+    status_counts = storage.count_appointments_by_status()
+    total_appointments = sum(status_counts.values())
+    upcoming = storage.get_upcoming_appointments()
+
+    return {
+        "total_patients": len(patients),
+        "total_appointments": total_appointments,
+        "status_counts": {
+            "scheduled": status_counts.get("scheduled", 0),
+            "completed": status_counts.get("completed", 0),
+            "cancelled": status_counts.get("cancelled", 0),
+        },
+        "upcoming_appointments": upcoming,
+    }
+
+
 def get_dashboard_stats() -> dict:
     """Compute comprehensive dashboard statistics overview."""
     storage = get_storage()

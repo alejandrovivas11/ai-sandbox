@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -161,3 +163,60 @@ def create_appointment_new_schema(client: TestClient, create_patient):
         return response.json()
 
     return _factory
+
+
+@pytest.fixture
+def sample_dashboard_data(
+    client: TestClient, create_patient, create_appointment
+) -> dict:
+    """Create a set of sample patients and appointments for dashboard
+    analytics testing.
+
+    Returns a dict with 'patients' and 'appointments' lists containing
+    the created records, spanning multiple statuses and date ranges to
+    exercise aggregation and filtering logic.
+    """
+    now = datetime.utcnow()
+
+    patients = [
+        create_patient(first_name="Dashboard", last_name="Patient1"),
+        create_patient(
+            first_name="Dashboard",
+            last_name="Patient2",
+            phone_number="555-600-0001",
+        ),
+        create_patient(
+            first_name="Dashboard",
+            last_name="Patient3",
+            phone_number="555-600-0002",
+        ),
+    ]
+
+    appointments = [
+        create_appointment(
+            patient_id=patients[0]["id"],
+            date_time=(now + timedelta(days=5)).isoformat(),
+            appointment_type="checkup",
+            status="scheduled",
+        ),
+        create_appointment(
+            patient_id=patients[1]["id"],
+            date_time=(now - timedelta(days=1)).isoformat(),
+            appointment_type="followup",
+            status="completed",
+        ),
+        create_appointment(
+            patient_id=patients[2]["id"],
+            date_time=(now - timedelta(days=3)).isoformat(),
+            appointment_type="consultation",
+            status="cancelled",
+        ),
+        create_appointment(
+            patient_id=patients[0]["id"],
+            date_time=(now - timedelta(days=7)).isoformat(),
+            appointment_type="checkup",
+            status="completed",
+        ),
+    ]
+
+    return {"patients": patients, "appointments": appointments}

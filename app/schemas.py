@@ -9,6 +9,15 @@ from app.models.patient import (  # noqa: F401
 )
 
 
+class DashboardResponse(BaseModel):
+    """Response model for the dashboard metrics endpoint."""
+
+    total_patients: int
+    total_appointments: int
+    status_counts: dict[str, int]
+    upcoming_appointments: list[dict]
+
+
 class HealthResponse(BaseModel):
     """Response model for the health check endpoint."""
 

@@ -18,6 +18,8 @@ class DashboardMetrics(BaseModel):
     patients_seen_today: StrictInt = Field(ge=0)
     completion_rate: float = Field(default=0.0, ge=0.0, le=100.0)
     growth_rate: float = Field(default=0.0)
+    status_counts: dict[str, int] = Field(default_factory=dict)
+    upcoming_appointments: list[dict] = Field(default_factory=list)
 
 
 class DashboardStats(BaseModel):

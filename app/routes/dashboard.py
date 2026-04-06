@@ -16,6 +16,18 @@ def get_dashboard() -> dict:
     return dashboard_service.get_dashboard_metrics()
 
 
+@router.get("/metrics")
+def get_dashboard_metrics_filtered(
+    start_date: date | None = Query(default=None),
+    end_date: date | None = Query(default=None),
+) -> dict:
+    """Return dashboard metrics with optional date range filtering."""
+    return dashboard_service.get_filtered_dashboard_metrics(
+        start_date=start_date.isoformat() if start_date else None,
+        end_date=end_date.isoformat() if end_date else None,
+    )
+
+
 @router.get("/stats")
 def get_dashboard_stats() -> dict:
     """Return comprehensive dashboard statistics overview."""
