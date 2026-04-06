@@ -1,5 +1,7 @@
 """Patient API routes."""
 
+import sqlite3
+
 from fastapi import APIRouter, HTTPException, Response, status
 
 from app.models.patient import PatientCreate, PatientResponse, PatientUpdate
@@ -8,7 +10,9 @@ from app.services import patient_service
 router = APIRouter(prefix="/patients", tags=["patients"])
 
 
-@router.post("/", response_model=PatientResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=PatientResponse, status_code=status.HTTP_201_CREATED
+)
 def create_patient(data: PatientCreate) -> dict:
     """Create a new patient."""
     return patient_service.create_patient(data)
@@ -41,7 +45,13 @@ def update_patient(patient_id: str, data: PatientUpdate) -> dict:
 @router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_patient(patient_id: str) -> Response:
     """Delete a patient by id."""
-    deleted = patient_service.delete_patient(patient_id)
+    try:
+        deleted = patient_service.delete_patient(patient_id)
+    except sqlite3.IntegrityError:
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete patient with existing appointments",
+        )
     if not deleted:
         raise HTTPException(status_code=404, detail="Patient not found")
     return Response(status_code=204)

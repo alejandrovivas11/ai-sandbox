@@ -1,3 +1,9 @@
+"""Shared test fixtures for the Patient Management API test suite.
+
+Provides a TestClient, database initialization/teardown, and factory
+helpers for creating patients and appointments via the API.
+"""
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -12,11 +18,33 @@ def client() -> TestClient:
 
 
 @pytest.fixture(autouse=True)
-def reset_storage():
-    """Clear in-memory storage before and after every test for full isolation."""
-    storage.reset()
+def setup_test_db():
+    """Initialize a fresh SQLite database for each test.
+
+    Creates all required tables (patients, appointments) with foreign key
+    enforcement enabled, then clears all rows before and after each test
+    so every test starts with an empty, clean database.
+    """
+    storage.init_db()
+
+    conn = storage.get_connection()
+    try:
+        # Clear data in correct order (child tables first) to respect FK constraints
+        conn.execute("DELETE FROM appointments")
+        conn.execute("DELETE FROM patients")
+        conn.commit()
+    finally:
+        conn.close()
+
     yield
-    storage.reset()
+
+    conn = storage.get_connection()
+    try:
+        conn.execute("DELETE FROM appointments")
+        conn.execute("DELETE FROM patients")
+        conn.commit()
+    finally:
+        conn.close()
 
 
 @pytest.fixture
@@ -70,8 +98,8 @@ def create_appointment(client: TestClient, create_patient):
 
     If no patient_id is provided, a new patient is created automatically.
     Accepts optional keyword overrides for the appointment payload.
-    Defaults: date_time='2025-12-15T10:00:00', appointment_type='checkup'.
-    Asserts that the response status is 201 Created.
+    Uses the new SQLite-backed appointment schema with doctor_name and
+    datetime fields.  Asserts that the response status is 201 Created.
     """
 
     def _factory(
@@ -84,8 +112,8 @@ def create_appointment(client: TestClient, create_patient):
 
         defaults = {
             "patient_id": patient_id,
-            "date_time": "2025-12-15T10:00:00",
-            "appointment_type": "checkup",
+            "doctor_name": "Dr. Smith",
+            "datetime": "2025-12-15T10:00:00",
         }
         defaults.update(overrides)
         response = client.post("/appointments/", json=defaults)

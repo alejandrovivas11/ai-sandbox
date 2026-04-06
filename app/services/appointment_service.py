@@ -1,63 +1,119 @@
 """Service layer for appointment business logic."""
 
+import sqlite3
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime as _datetime
 
 from app.models.appointment import AppointmentCreate, AppointmentUpdate
-from app.storage import appointments_db, patients_db
-
-
-def patient_exists(patient_id: str) -> bool:
-    """Check whether a patient exists in storage."""
-    return patient_id in patients_db
+from app import storage
 
 
 def create_appointment(data: AppointmentCreate) -> dict:
-    """Create a new appointment, store in memory, and return the full record."""
+    """Create a new appointment in the database and return it as a dict.
+
+    Raises ValueError if the patient_id does not reference an existing patient.
+    """
     appointment_id = str(uuid.uuid4())
-    now = datetime.utcnow()
-    appointment = {
-        "id": appointment_id,
-        **data.model_dump(),
-        "created_at": now,
-        "updated_at": now,
-    }
-    appointments_db[appointment_id] = appointment
-    return appointment
+    now = _datetime.utcnow().isoformat()
+    conn = storage.get_connection()
+    try:
+        conn.execute(
+            "INSERT INTO appointments "
+            "(id, patient_id, doctor_name, datetime, status, notes, "
+            "created_at, updated_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                appointment_id,
+                data.patient_id,
+                data.doctor_name,
+                data.datetime,
+                data.status,
+                data.notes,
+                now,
+                now,
+            ),
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT * FROM appointments WHERE id = ?", (appointment_id,)
+        ).fetchone()
+        return dict(row)
+    except sqlite3.IntegrityError:
+        raise ValueError("Patient not found")
+    finally:
+        conn.close()
+
+
+def get_appointments() -> list[dict]:
+    """Return all appointments as a list of dicts."""
+    conn = storage.get_connection()
+    try:
+        rows = conn.execute("SELECT * FROM appointments").fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
 
 
 def get_appointment(appointment_id: str) -> dict | None:
     """Return an appointment dict by id, or None if not found."""
-    return appointments_db.get(appointment_id)
-
-
-def get_all_appointments(patient_id: str | None = None) -> list[dict]:
-    """Return all appointments, optionally filtered by patient_id."""
-    appointments = list(appointments_db.values())
-    if patient_id is not None:
-        appointments = [
-            a for a in appointments if a.get("patient_id") == patient_id
-        ]
-    return appointments
+    conn = storage.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM appointments WHERE id = ?", (appointment_id,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
 
 
 def update_appointment(
     appointment_id: str, data: AppointmentUpdate
 ) -> dict | None:
-    """Partially update an appointment. Returns updated dict or None."""
-    appointment = appointments_db.get(appointment_id)
-    if appointment is None:
-        return None
-    updates = data.model_dump(exclude_unset=True)
-    for key, value in updates.items():
-        appointment[key] = value
-    now = datetime.utcnow()
-    if appointment.get("updated_at") and now <= appointment["updated_at"]:
-        now = appointment["updated_at"] + timedelta(microseconds=1)
-    appointment["updated_at"] = now
-    return appointment
+    """Update an appointment. Returns updated dict, or None if not found.
+
+    Raises ValueError if the updated patient_id violates the FK constraint.
+    """
+    conn = storage.get_connection()
+    try:
+        row = conn.execute(
+            "SELECT * FROM appointments WHERE id = ?", (appointment_id,)
+        ).fetchone()
+        if row is None:
+            return None
+
+        updates = data.model_dump(exclude_none=True)
+        now = _datetime.utcnow().isoformat()
+        updates["updated_at"] = now
+
+        set_parts = []
+        values = []
+        for key, value in updates.items():
+            set_parts.append(key + " = ?")
+            values.append(value)
+        values.append(appointment_id)
+
+        sql = "UPDATE appointments SET " + ", ".join(set_parts) + " WHERE id = ?"
+        conn.execute(sql, values)
+        conn.commit()
+
+        row = conn.execute(
+            "SELECT * FROM appointments WHERE id = ?", (appointment_id,)
+        ).fetchone()
+        return dict(row)
+    except sqlite3.IntegrityError:
+        raise ValueError("Patient not found")
+    finally:
+        conn.close()
 
 
 def delete_appointment(appointment_id: str) -> bool:
-    """Remove an appointment. Returns True if deleted, False if not found."""
-    return appointments_db.pop(appointment_id, None) is not None
+    """Delete an appointment. Returns True if deleted, False if not found."""
+    conn = storage.get_connection()
+    try:
+        cursor = conn.execute(
+            "DELETE FROM appointments WHERE id = ?", (appointment_id,)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
