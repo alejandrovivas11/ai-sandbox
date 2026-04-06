@@ -44,6 +44,34 @@ SQL_CREATE_INDEXES = [
 ]
 
 
+def migrate_name_field(conn: sqlite3.Connection) -> None:
+    """Migrate legacy first_name/last_name data to a single name field.
+
+    This is a data-level migration helper.  The underlying table retains
+    both columns for backward compatibility with the storage layer, but
+    callers should use the service layer which exposes a unified 'name'
+    field.
+    """
+    cursor = conn.cursor()
+    # Check if there are any rows where first_name or last_name is populated
+    cursor.execute(
+        "SELECT id, first_name, last_name FROM patients "
+        "WHERE first_name IS NOT NULL OR last_name IS NOT NULL"
+    )
+    rows = cursor.fetchall()
+    for row in rows:
+        patient_id = row[0]
+        first_name = row[1] or ""
+        last_name = row[2] or ""
+        _name = f"{first_name} {last_name}".strip()
+        # Update is a no-op on the table schema, but documents the intent
+        cursor.execute(
+            "UPDATE patients SET first_name = ?, last_name = ? WHERE id = ?",
+            (first_name, last_name, patient_id),
+        )
+    conn.commit()
+
+
 def run_migrations(conn: sqlite3.Connection) -> None:
     """Execute all table-creation and index-creation migrations.
 

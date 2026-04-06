@@ -2,6 +2,12 @@
 
 from pydantic import BaseModel
 
+from app.models.patient import (  # noqa: F401
+    PatientCreate,
+    PatientResponse,
+    PatientUpdate,
+)
+
 
 class HealthResponse(BaseModel):
     """Response model for the health check endpoint."""
