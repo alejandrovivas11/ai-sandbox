@@ -86,6 +86,22 @@ class TestCreatePatient:
             f"Expected 422 Unprocessable Entity, got {response.status_code}"
         )
 
+    def test_create_patient_missing_email(
+        self, client: TestClient
+    ) -> None:
+        """Verify POST /patients without required 'email' field returns
+        422 validation error since email is required."""
+        # Arrange -- payload missing 'email'
+        payload = {"name": "No Email User"}
+
+        # Act
+        response = client.post("/patients/", json=payload)
+
+        # Assert
+        assert response.status_code == 422, (
+            f"Expected 422 Unprocessable Entity, got {response.status_code}"
+        )
+
 
 class TestGetPatients:
     """Tests for GET /patients."""

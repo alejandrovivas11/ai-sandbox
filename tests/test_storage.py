@@ -36,6 +36,48 @@ class TestInitDb:
             "Expected 'appointments' table to exist after init_db()"
         )
 
+        # Verify foreign key constraint on appointments table
+        conn = storage.get_connection()
+        try:
+            fk_cursor = conn.execute("PRAGMA foreign_key_list(appointments)")
+            fk_rows = fk_cursor.fetchall()
+            assert len(fk_rows) > 0, (
+                "Expected at least one foreign key constraint on appointments"
+            )
+            fk = dict(fk_rows[0])
+            assert fk["table"] == "patients", (
+                f"Expected FK to reference 'patients', got '{fk['table']}'"
+            )
+
+            # Verify patients column definitions
+            p_cursor = conn.execute("PRAGMA table_info(patients)")
+            p_columns = {row["name"]: row for row in p_cursor.fetchall()}
+
+            assert p_columns["id"]["type"] == "TEXT", "patients.id should be TEXT"
+            assert p_columns["id"]["pk"] == 1, "patients.id should be primary key"
+            assert p_columns["name"]["notnull"] == 1, "patients.name should be NOT NULL"
+            assert p_columns["email"]["notnull"] == 1, "patients.email should be NOT NULL"
+            assert p_columns["created_at"]["notnull"] == 1, "patients.created_at should be NOT NULL"
+            assert p_columns["updated_at"]["notnull"] == 1, "patients.updated_at should be NOT NULL"
+            assert p_columns["phone"]["notnull"] == 0, "patients.phone should be nullable"
+            assert p_columns["date_of_birth"]["notnull"] == 0, "patients.date_of_birth should be nullable"
+
+            # Verify appointments column definitions
+            a_cursor = conn.execute("PRAGMA table_info(appointments)")
+            a_columns = {row["name"]: row for row in a_cursor.fetchall()}
+
+            assert a_columns["id"]["type"] == "TEXT", "appointments.id should be TEXT"
+            assert a_columns["id"]["pk"] == 1, "appointments.id should be primary key"
+            assert a_columns["patient_id"]["notnull"] == 1, "appointments.patient_id should be NOT NULL"
+            assert a_columns["doctor_name"]["notnull"] == 1, "appointments.doctor_name should be NOT NULL"
+            assert a_columns["datetime"]["notnull"] == 1, "appointments.datetime should be NOT NULL"
+            assert a_columns["status"]["notnull"] == 1, "appointments.status should be NOT NULL"
+            assert a_columns["notes"]["notnull"] == 0, "appointments.notes should be nullable"
+            assert a_columns["created_at"]["notnull"] == 1, "appointments.created_at should be NOT NULL"
+            assert a_columns["updated_at"]["notnull"] == 1, "appointments.updated_at should be NOT NULL"
+        finally:
+            conn.close()
+
     def test_init_db_idempotent(self) -> None:
         """Verify calling init_db() multiple times does not raise an error."""
         # Arrange / Act -- call twice in succession

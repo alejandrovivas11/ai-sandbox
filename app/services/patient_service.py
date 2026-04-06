@@ -1,7 +1,7 @@
 """Service layer for patient business logic using SQLite storage."""
 
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from app import storage
 from app.models.patient import PatientCreate, PatientUpdate
@@ -10,7 +10,7 @@ from app.models.patient import PatientCreate, PatientUpdate
 def create_patient(data: PatientCreate) -> dict:
     """Create a new patient in SQLite and return the full record."""
     patient_id = str(uuid.uuid4())
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.utcnow().isoformat()
     conn = storage.get_connection()
     try:
         conn.execute(
@@ -66,10 +66,16 @@ def update_patient(patient_id: str, data: PatientUpdate) -> dict | None:
             return None
 
         updates = data.model_dump(exclude_none=True)
-        now = datetime.now(timezone.utc).isoformat()
+
+        allowed_fields = {"name", "email", "phone", "address"}
+        for key in updates:
+            if key not in allowed_fields:
+                raise ValueError(f"Invalid field: {key}")
+
+        now = datetime.utcnow().isoformat()
         updates["updated_at"] = now
 
-        set_clauses = [key + " = ?" for key in updates]
+        set_clauses = [f"{key} = ?" for key in updates]
         values = list(updates.values())
         values.append(patient_id)
 
