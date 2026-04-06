@@ -1,89 +1,250 @@
 """Unit tests for the dashboard service layer.
 
-These tests verify the get_dashboard_metrics function directly,
-independent of the HTTP routing layer.
+These tests verify the get_dashboard_stats function directly,
+independent of the HTTP routing layer. They import DashboardStats
+from app.models.dashboard and call get_dashboard_stats() from
+app.services.dashboard_service.
+
+All tests clear storage before running via the autouse fixture in conftest.
 """
 
-from datetime import datetime, timedelta
-from unittest.mock import patch
+import datetime
 
 from app import storage
-from app.services.dashboard_service import get_dashboard_metrics
+from app.models.dashboard import DashboardStats
+from app.services.dashboard_service import get_dashboard_stats
 
 
-def test_get_dashboard_metrics_returns_all_keys() -> None:
-    """Verify get_dashboard_metrics returns a dict with all 6 required keys:
-    total_patients, total_appointments, upcoming_appointments_count,
-    completed_appointments_count, cancelled_appointments_count,
-    patients_seen_today."""
-    # Arrange -- empty storage (autouse fixture resets it)
+# ---------- Empty state ----------
+
+
+def test_dashboard_service_empty_database() -> None:
+    """get_dashboard_stats() returns DashboardStats with all counts as 0
+    and empty lists when storage is cleared."""
+    # Arrange -- storage is empty via autouse fixture
 
     # Act
-    result = get_dashboard_metrics()
+    result = get_dashboard_stats()
 
     # Assert
-    expected_keys = {
-        "total_patients",
-        "total_appointments",
-        "upcoming_appointments_count",
-        "completed_appointments_count",
-        "cancelled_appointments_count",
-        "patients_seen_today",
-    }
-    assert isinstance(result, dict), (
-        f"Expected dict return type, got {type(result).__name__}"
+    assert isinstance(result, DashboardStats), (
+        f"Expected DashboardStats instance, got {type(result).__name__}"
     )
-    assert set(result.keys()) == expected_keys, (
-        f"Expected keys {expected_keys}, got {set(result.keys())}"
+    assert result.total_patients == 0, (
+        f"Expected total_patients=0, got {result.total_patients}"
     )
-    for key in expected_keys:
-        assert isinstance(result[key], int), (
-            f"Expected {key} to be int, got {type(result[key]).__name__}"
-        )
+    assert result.total_appointments == 0, (
+        f"Expected total_appointments=0, got {result.total_appointments}"
+    )
+    assert result.upcoming_appointments == 0, (
+        f"Expected upcoming_appointments=0, got {result.upcoming_appointments}"
+    )
+    assert result.completed_appointments == 0, (
+        f"Expected completed_appointments=0, got {result.completed_appointments}"
+    )
+    assert result.cancelled_appointments == 0, (
+        f"Expected cancelled_appointments=0, got {result.cancelled_appointments}"
+    )
+    assert result.recent_appointments == [], (
+        f"Expected recent_appointments=[], got {result.recent_appointments}"
+    )
+    assert result.today_appointments == [], (
+        f"Expected today_appointments=[], got {result.today_appointments}"
+    )
 
 
-def test_get_dashboard_metrics_single_iteration() -> None:
-    """Verify get_dashboard_metrics computes all appointment-based metrics
-    in a single iteration over appointments_db for efficiency.
+# ---------- Aggregation with known dataset ----------
 
-    We patch appointments_db.values to track how many times it is called;
-    it should be invoked exactly once regardless of the number of
-    appointment-level metrics being computed.
-    """
+
+def test_dashboard_service_aggregation_logic_with_known_dataset() -> None:
+    """get_dashboard_stats() returns correct aggregated values when storage
+    is seeded with a known dataset of 3 patients and 5 appointments with
+    mixed statuses and dates."""
     # Arrange
-    now = datetime.utcnow()
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    yesterday_str = (
+        datetime.datetime.utcnow() - datetime.timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+    storage.patients_db["p1"] = {"id": "p1", "first_name": "Alice"}
+    storage.patients_db["p2"] = {"id": "p2", "first_name": "Bob"}
+    storage.patients_db["p3"] = {"id": "p3", "first_name": "Charlie"}
+
     storage.appointments_db["a1"] = {
         "id": "a1",
         "patient_id": "p1",
-        "date_time": now + timedelta(hours=1),
         "status": "scheduled",
+        "date": today_str,
+        "created_at": "2023-12-01T10:00:00",
     }
     storage.appointments_db["a2"] = {
         "id": "a2",
-        "patient_id": "p2",
-        "date_time": now - timedelta(hours=1),
+        "patient_id": "p1",
         "status": "completed",
+        "date": today_str,
+        "created_at": "2023-12-01T11:00:00",
+    }
+    storage.appointments_db["a3"] = {
+        "id": "a3",
+        "patient_id": "p2",
+        "status": "cancelled",
+        "date": yesterday_str,
+        "created_at": "2023-12-01T09:00:00",
+    }
+    storage.appointments_db["a4"] = {
+        "id": "a4",
+        "patient_id": "p2",
+        "status": "scheduled",
+        "date": yesterday_str,
+        "created_at": "2023-12-01T08:00:00",
+    }
+    storage.appointments_db["a5"] = {
+        "id": "a5",
+        "patient_id": "p3",
+        "status": "completed",
+        "date": yesterday_str,
+        "created_at": "2023-12-01T07:00:00",
     }
 
-    original_values = storage.appointments_db.values
-    call_count = 0
-
-    def tracking_values() -> list:
-        nonlocal call_count
-        call_count += 1
-        return original_values()
-
     # Act
-    with patch.object(
-        type(storage.appointments_db), "values", tracking_values
-    ):
-        result = get_dashboard_metrics()
+    result = get_dashboard_stats()
 
     # Assert
-    assert call_count == 1, (
-        f"appointments_db.values() should be called exactly once, was called {call_count} times"
+    assert isinstance(result, DashboardStats), (
+        f"Expected DashboardStats instance, got {type(result).__name__}"
     )
-    # Sanity-check that results are still correct
-    assert result["total_appointments"] == 2, (
-        f"Expected total_appointments=2, got {result['total_appointments']}"
+    assert result.total_patients == 3, (
+        f"Expected total_patients=3, got {result.total_patients}"
+    )
+    assert result.total_appointments == 5, (
+        f"Expected total_appointments=5, got {result.total_appointments}"
+    )
+    assert result.upcoming_appointments == 2, (
+        f"Expected upcoming_appointments=2 (scheduled), got {result.upcoming_appointments}"
+    )
+    assert result.completed_appointments == 2, (
+        f"Expected completed_appointments=2, got {result.completed_appointments}"
+    )
+    assert result.cancelled_appointments == 1, (
+        f"Expected cancelled_appointments=1, got {result.cancelled_appointments}"
+    )
+    assert len(result.recent_appointments) <= 5, (
+        f"Expected at most 5 recent_appointments, got {len(result.recent_appointments)}"
+    )
+    # today_appointments should only include appointments with today's date
+    today_ids = {appt["id"] for appt in result.today_appointments}
+    assert today_ids == {"a1", "a2"}, (
+        f"Expected today_appointments to contain a1 and a2, got {today_ids}"
+    )
+
+
+# ---------- Datetime object handling ----------
+
+
+def test_dashboard_service_handles_datetime_objects() -> None:
+    """get_dashboard_stats() correctly handles appointments with datetime
+    objects for created_at and date fields."""
+    # Arrange
+    now = datetime.datetime.utcnow()
+    today_dt = now.replace(hour=10, minute=0, second=0, microsecond=0)
+
+    storage.patients_db["p1"] = {"id": "p1", "first_name": "Alice"}
+
+    storage.appointments_db["a1"] = {
+        "id": "a1",
+        "patient_id": "p1",
+        "status": "scheduled",
+        "date": today_dt,
+        "created_at": today_dt,
+    }
+    storage.appointments_db["a2"] = {
+        "id": "a2",
+        "patient_id": "p1",
+        "status": "completed",
+        "date": today_dt - datetime.timedelta(days=1),
+        "created_at": today_dt - datetime.timedelta(hours=2),
+    }
+
+    # Act
+    result = get_dashboard_stats()
+
+    # Assert
+    assert isinstance(result, DashboardStats), (
+        f"Expected DashboardStats instance, got {type(result).__name__}"
+    )
+    assert result.total_patients == 1, (
+        f"Expected total_patients=1, got {result.total_patients}"
+    )
+    assert result.total_appointments == 2, (
+        f"Expected total_appointments=2, got {result.total_appointments}"
+    )
+    # a1 is scheduled (today), a2 is completed (yesterday)
+    assert result.upcoming_appointments == 1, (
+        f"Expected upcoming_appointments=1, got {result.upcoming_appointments}"
+    )
+    assert result.completed_appointments == 1, (
+        f"Expected completed_appointments=1, got {result.completed_appointments}"
+    )
+    assert len(result.recent_appointments) == 2, (
+        f"Expected 2 recent_appointments, got {len(result.recent_appointments)}"
+    )
+    # Only a1 is for today
+    today_ids = {appt["id"] for appt in result.today_appointments}
+    assert "a1" in today_ids, (
+        "Expected appointment a1 (today) in today_appointments"
+    )
+    assert "a2" not in today_ids, (
+        "Expected appointment a2 (yesterday) not in today_appointments"
+    )
+
+
+# ---------- ISO format string handling ----------
+
+
+def test_dashboard_service_handles_iso_format_strings() -> None:
+    """get_dashboard_stats() correctly handles appointments with ISO format
+    strings for created_at and date fields."""
+    # Arrange
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    yesterday_str = (
+        datetime.datetime.utcnow() - datetime.timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+    storage.patients_db["p1"] = {"id": "p1", "first_name": "Alice"}
+
+    storage.appointments_db["a1"] = {
+        "id": "a1",
+        "patient_id": "p1",
+        "status": "scheduled",
+        "date": f"{today_str}T14:00:00",
+        "created_at": f"{today_str}T14:00:00",
+    }
+    storage.appointments_db["a2"] = {
+        "id": "a2",
+        "patient_id": "p1",
+        "status": "cancelled",
+        "date": f"{yesterday_str}T09:00:00",
+        "created_at": f"{yesterday_str}T09:00:00",
+    }
+
+    # Act
+    result = get_dashboard_stats()
+
+    # Assert
+    assert isinstance(result, DashboardStats), (
+        f"Expected DashboardStats instance, got {type(result).__name__}"
+    )
+    assert result.total_appointments == 2, (
+        f"Expected total_appointments=2, got {result.total_appointments}"
+    )
+    assert result.upcoming_appointments == 1, (
+        f"Expected upcoming_appointments=1, got {result.upcoming_appointments}"
+    )
+    assert result.cancelled_appointments == 1, (
+        f"Expected cancelled_appointments=1, got {result.cancelled_appointments}"
+    )
+    # Only a1 has today's date
+    today_ids = {appt["id"] for appt in result.today_appointments}
+    assert today_ids == {"a1"}, (
+        f"Expected today_appointments to contain only a1, got {today_ids}"
     )

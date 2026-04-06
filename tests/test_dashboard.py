@@ -1,56 +1,107 @@
-"""Comprehensive integration tests for the GET /dashboard/ endpoint.
+"""Comprehensive API-level integration tests for GET /dashboard/.
 
-Covers empty state, counts, upcoming/completed/cancelled metrics,
-patients_seen_today with deduplication, and status filtering.
-These tests use the API-level factory fixtures to create data through
-the HTTP endpoints rather than inserting directly into storage.
+These tests use FastAPI TestClient to verify the dashboard endpoint returns
+the correct DashboardStats schema with fields: total_patients,
+total_appointments, upcoming_appointments, completed_appointments,
+cancelled_appointments, recent_appointments, today_appointments.
+
+All tests clear storage before running via the autouse fixture in conftest.
 """
 
-from datetime import datetime
+import datetime
 
 from fastapi.testclient import TestClient
 
 from app import storage
 
 
-# ---------- Empty state ----------
+DASHBOARD_STATS_KEYS = [
+    "total_patients",
+    "total_appointments",
+    "upcoming_appointments",
+    "completed_appointments",
+    "cancelled_appointments",
+    "recent_appointments",
+    "today_appointments",
+]
 
 
-def test_dashboard_empty(client: TestClient) -> None:
-    """GET /dashboard/ with no data returns all 6 metric fields as 0."""
-    # Arrange -- storage is already empty via autouse fixture
+# ---------- Basic response ----------
+
+
+def test_get_dashboard_stats_returns_200(
+    client: TestClient, create_patient
+) -> None:
+    """GET /dashboard/ returns HTTP 200 with JSON body containing all
+    DashboardStats fields when storage has data."""
+    # Arrange
+    create_patient(first_name="Alice")
+    storage.appointments_db["a1"] = {
+        "id": "a1",
+        "patient_id": "p1",
+        "status": "scheduled",
+        "date": datetime.datetime.utcnow().strftime("%Y-%m-%d"),
+        "created_at": "2023-12-01T10:00:00",
+    }
 
     # Act
     response = client.get("/dashboard/")
 
     # Assert
     assert response.status_code == 200, (
-        f"Expected 200 OK, got {response.status_code}"
+        f"Expected HTTP 200, got {response.status_code}"
     )
     data = response.json()
-    expected_keys = [
-        "total_patients",
-        "total_appointments",
-        "upcoming_appointments_count",
-        "completed_appointments_count",
-        "cancelled_appointments_count",
-        "patients_seen_today",
-    ]
-    for key in expected_keys:
-        assert key in data, f"Response missing required key '{key}'"
-        assert data[key] == 0, (
-            f"Expected {key}=0 for empty state, got {data[key]}"
+    for key in DASHBOARD_STATS_KEYS:
+        assert key in data, (
+            f"Response missing required DashboardStats key '{key}'"
         )
 
 
-# ---------- Patients only ----------
+def test_get_dashboard_stats_empty_storage(client: TestClient) -> None:
+    """GET /dashboard/ returns HTTP 200 with all count fields as 0 and list
+    fields as empty arrays when storage is empty."""
+    # Arrange -- storage is empty via autouse fixture
+
+    # Act
+    response = client.get("/dashboard/")
+
+    # Assert
+    assert response.status_code == 200, (
+        f"Expected HTTP 200 for empty storage, got {response.status_code}"
+    )
+    data = response.json()
+    assert data["total_patients"] == 0, (
+        f"Expected total_patients=0, got {data['total_patients']}"
+    )
+    assert data["total_appointments"] == 0, (
+        f"Expected total_appointments=0, got {data['total_appointments']}"
+    )
+    assert data["upcoming_appointments"] == 0, (
+        f"Expected upcoming_appointments=0, got {data['upcoming_appointments']}"
+    )
+    assert data["completed_appointments"] == 0, (
+        f"Expected completed_appointments=0, got {data['completed_appointments']}"
+    )
+    assert data["cancelled_appointments"] == 0, (
+        f"Expected cancelled_appointments=0, got {data['cancelled_appointments']}"
+    )
+    assert data["recent_appointments"] == [], (
+        f"Expected recent_appointments=[], got {data['recent_appointments']}"
+    )
+    assert data["today_appointments"] == [], (
+        f"Expected today_appointments=[], got {data['today_appointments']}"
+    )
 
 
-def test_dashboard_patients_only(
+# ---------- Patient counts ----------
+
+
+def test_dashboard_counts_total_patients_correctly(
     client: TestClient, create_patient
 ) -> None:
-    """GET /dashboard/ after creating 3 patients returns total_patients=3
-    and all other metrics as 0."""
+    """total_patients field accurately reflects the number of patients in
+    storage when 3 patients are seeded."""
     # Arrange
     create_patient(first_name="Alice")
     create_patient(first_name="Bob")
@@ -60,44 +111,34 @@ def test_dashboard_patients_only(
     response = client.get("/dashboard/")
 
     # Assert
-    assert response.status_code == 200, (
-        f"Expected 200 OK, got {response.status_code}"
-    )
+    assert response.status_code == 200
     data = response.json()
     assert data["total_patients"] == 3, (
         f"Expected total_patients=3, got {data['total_patients']}"
     )
-    assert data["total_appointments"] == 0, (
-        f"Expected total_appointments=0, got {data['total_appointments']}"
-    )
-    assert data["upcoming_appointments_count"] == 0, (
-        f"Expected upcoming_appointments_count=0, got {data['upcoming_appointments_count']}"
-    )
-    assert data["completed_appointments_count"] == 0, (
-        f"Expected completed_appointments_count=0, got {data['completed_appointments_count']}"
-    )
-    assert data["cancelled_appointments_count"] == 0, (
-        f"Expected cancelled_appointments_count=0, got {data['cancelled_appointments_count']}"
-    )
-    assert data["patients_seen_today"] == 0, (
-        f"Expected patients_seen_today=0, got {data['patients_seen_today']}"
-    )
 
 
-# ---------- Total counts ----------
+# ---------- Appointment counts ----------
 
 
-def test_dashboard_total_counts(
-    client: TestClient, create_patient, create_appointment
+def test_dashboard_counts_total_appointments_correctly(
+    client: TestClient, create_patient
 ) -> None:
-    """GET /dashboard/ with 2 patients and 3 appointments returns correct
-    total_patients and total_appointments counts."""
+    """total_appointments field accurately reflects the number of appointments
+    in storage when 5 appointments are seeded."""
     # Arrange
-    p1 = create_patient(first_name="Alice")
-    p2 = create_patient(first_name="Bob")
-    create_appointment(patient_id=p1["id"])
-    create_appointment(patient_id=p1["id"], date_time="2025-12-16T10:00:00")
-    create_appointment(patient_id=p2["id"])
+    patient = create_patient()
+    pid = patient["id"]
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+    for i in range(1, 6):
+        storage.appointments_db[f"a{i}"] = {
+            "id": f"a{i}",
+            "patient_id": pid,
+            "status": "scheduled",
+            "date": today_str,
+            "created_at": f"2023-12-01T{i + 10:02d}:00:00",
+        }
 
     # Act
     response = client.get("/dashboard/")
@@ -105,87 +146,39 @@ def test_dashboard_total_counts(
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["total_patients"] == 2, (
-        f"Expected total_patients=2, got {data['total_patients']}"
-    )
-    assert data["total_appointments"] == 3, (
-        f"Expected total_appointments=3, got {data['total_appointments']}"
+    assert data["total_appointments"] == 5, (
+        f"Expected total_appointments=5, got {data['total_appointments']}"
     )
 
 
-# ---------- Upcoming count ----------
+# ---------- Status-based counts ----------
 
 
-def test_dashboard_upcoming_count(
+def test_dashboard_counts_appointments_by_status_scheduled(
     client: TestClient, create_patient
 ) -> None:
-    """GET /dashboard/ with 2 future appointments and 1 past appointment
-    returns upcoming_appointments=2."""
+    """upcoming_appointments counts only appointments with status 'scheduled'
+    when mixed status appointments are seeded."""
     # Arrange
     patient = create_patient()
     pid = patient["id"]
-
-    # Insert appointments directly into storage to control date_time
-    storage.appointments_db["future-1"] = {
-        "id": "future-1",
-        "patient_id": pid,
-        "date_time": "2099-12-15T10:00:00",
-        "status": "scheduled",
-    }
-    storage.appointments_db["future-2"] = {
-        "id": "future-2",
-        "patient_id": pid,
-        "date_time": "2099-12-15T10:00:00",
-        "status": "scheduled",
-    }
-    storage.appointments_db["past-1"] = {
-        "id": "past-1",
-        "patient_id": pid,
-        "date_time": "2020-01-01T10:00:00",
-        "status": "scheduled",
-    }
-
-    # Act
-    response = client.get("/dashboard/")
-
-    # Assert
-    assert response.status_code == 200
-    data = response.json()
-    assert data["upcoming_appointments_count"] == 2, (
-        f"Expected upcoming_appointments_count=2, got {data['upcoming_appointments_count']}"
-    )
-
-
-# ---------- Completed and cancelled ----------
-
-
-def test_dashboard_completed_and_cancelled(
-    client: TestClient, create_patient
-) -> None:
-    """GET /dashboard/ with 3 appointments having different statuses returns
-    correct completed_appointments=1 and cancelled_appointments=1."""
-    # Arrange
-    patient = create_patient()
-    pid = patient["id"]
-    now = datetime.utcnow()
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
 
     storage.appointments_db["a1"] = {
-        "id": "a1",
-        "patient_id": pid,
-        "date_time": now.isoformat(),
-        "status": "scheduled",
+        "id": "a1", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T10:00:00",
     }
     storage.appointments_db["a2"] = {
-        "id": "a2",
-        "patient_id": pid,
-        "date_time": now.isoformat(),
-        "status": "completed",
+        "id": "a2", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T11:00:00",
     }
     storage.appointments_db["a3"] = {
-        "id": "a3",
-        "patient_id": pid,
-        "date_time": now.isoformat(),
-        "status": "cancelled",
+        "id": "a3", "patient_id": pid, "status": "completed",
+        "date": today_str, "created_at": "2023-12-01T12:00:00",
+    }
+    storage.appointments_db["a4"] = {
+        "id": "a4", "patient_id": pid, "status": "cancelled",
+        "date": today_str, "created_at": "2023-12-01T13:00:00",
     }
 
     # Act
@@ -194,32 +187,36 @@ def test_dashboard_completed_and_cancelled(
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["completed_appointments_count"] == 1, (
-        f"Expected completed_appointments_count=1, got {data['completed_appointments_count']}"
-    )
-    assert data["cancelled_appointments_count"] == 1, (
-        f"Expected cancelled_appointments_count=1, got {data['cancelled_appointments_count']}"
+    assert data["upcoming_appointments"] == 2, (
+        f"Expected upcoming_appointments=2, got {data['upcoming_appointments']}"
     )
 
 
-# ---------- Patients seen today ----------
-
-
-def test_dashboard_patients_seen_today(
+def test_dashboard_counts_appointments_by_status_completed(
     client: TestClient, create_patient
 ) -> None:
-    """GET /dashboard/ with 1 completed appointment today returns
-    patients_seen_today=1."""
+    """completed_appointments counts only appointments with status 'completed'
+    when mixed status appointments are seeded."""
     # Arrange
     patient = create_patient()
     pid = patient["id"]
-    now = datetime.utcnow()
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
 
     storage.appointments_db["a1"] = {
-        "id": "a1",
-        "patient_id": pid,
-        "date_time": now.isoformat(),
-        "status": "completed",
+        "id": "a1", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T10:00:00",
+    }
+    storage.appointments_db["a2"] = {
+        "id": "a2", "patient_id": pid, "status": "completed",
+        "date": today_str, "created_at": "2023-12-01T11:00:00",
+    }
+    storage.appointments_db["a3"] = {
+        "id": "a3", "patient_id": pid, "status": "completed",
+        "date": today_str, "created_at": "2023-12-01T12:00:00",
+    }
+    storage.appointments_db["a4"] = {
+        "id": "a4", "patient_id": pid, "status": "cancelled",
+        "date": today_str, "created_at": "2023-12-01T13:00:00",
     }
 
     # Act
@@ -228,32 +225,231 @@ def test_dashboard_patients_seen_today(
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["patients_seen_today"] == 1, (
-        f"Expected patients_seen_today=1, got {data['patients_seen_today']}"
+    assert data["completed_appointments"] == 2, (
+        f"Expected completed_appointments=2, got {data['completed_appointments']}"
     )
 
 
-def test_dashboard_patients_seen_today_dedup(
+def test_dashboard_counts_appointments_by_status_cancelled(
     client: TestClient, create_patient
 ) -> None:
-    """GET /dashboard/ with the same patient having 2 completed appointments
-    today returns patients_seen_today=1 (deduplicated)."""
+    """cancelled_appointments counts only appointments with status 'cancelled'
+    when mixed status appointments are seeded."""
     # Arrange
     patient = create_patient()
     pid = patient["id"]
-    now = datetime.utcnow()
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+    storage.appointments_db["a1"] = {
+        "id": "a1", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T10:00:00",
+    }
+    storage.appointments_db["a2"] = {
+        "id": "a2", "patient_id": pid, "status": "completed",
+        "date": today_str, "created_at": "2023-12-01T11:00:00",
+    }
+    storage.appointments_db["a3"] = {
+        "id": "a3", "patient_id": pid, "status": "cancelled",
+        "date": today_str, "created_at": "2023-12-01T12:00:00",
+    }
+
+    # Act
+    response = client.get("/dashboard/")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert data["cancelled_appointments"] == 1, (
+        f"Expected cancelled_appointments=1, got {data['cancelled_appointments']}"
+    )
+
+
+# ---------- Recent appointments ----------
+
+
+def test_dashboard_recent_appointments_limited_to_5(
+    client: TestClient, create_patient
+) -> None:
+    """recent_appointments returns exactly 5 appointments when 7 appointments
+    with distinct created_at timestamps are seeded."""
+    # Arrange
+    patient = create_patient()
+    pid = patient["id"]
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+    for i in range(1, 8):
+        storage.appointments_db[f"a{i}"] = {
+            "id": f"a{i}",
+            "patient_id": pid,
+            "status": "scheduled",
+            "date": today_str,
+            "created_at": f"2023-12-01T{i + 10:02d}:00:00",
+        }
+
+    # Act
+    response = client.get("/dashboard/")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["recent_appointments"]) == 5, (
+        f"Expected exactly 5 recent_appointments, got {len(data['recent_appointments'])}"
+    )
+
+
+def test_dashboard_recent_appointments_ordered_by_created_at_desc(
+    client: TestClient, create_patient
+) -> None:
+    """recent_appointments are ordered by created_at in descending order
+    when appointments with different timestamps are seeded."""
+    # Arrange
+    patient = create_patient()
+    pid = patient["id"]
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+    storage.appointments_db["a1"] = {
+        "id": "a1", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T08:00:00",
+    }
+    storage.appointments_db["a2"] = {
+        "id": "a2", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T14:00:00",
+    }
+    storage.appointments_db["a3"] = {
+        "id": "a3", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T10:00:00",
+    }
+
+    # Act
+    response = client.get("/dashboard/")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    recent = data["recent_appointments"]
+    assert len(recent) == 3, (
+        f"Expected 3 recent_appointments, got {len(recent)}"
+    )
+    assert recent[0]["id"] == "a2", (
+        f"Expected most recent appointment (a2) first, got {recent[0]['id']}"
+    )
+    assert recent[1]["id"] == "a3", (
+        f"Expected second most recent (a3) second, got {recent[1]['id']}"
+    )
+    assert recent[2]["id"] == "a1", (
+        f"Expected oldest appointment (a1) last, got {recent[2]['id']}"
+    )
+
+
+def test_dashboard_recent_appointments_less_than_5(
+    client: TestClient, create_patient
+) -> None:
+    """recent_appointments returns all appointments when fewer than 5
+    appointments exist in storage."""
+    # Arrange
+    patient = create_patient()
+    pid = patient["id"]
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+
+    storage.appointments_db["a1"] = {
+        "id": "a1", "patient_id": pid, "status": "scheduled",
+        "date": today_str, "created_at": "2023-12-01T10:00:00",
+    }
+    storage.appointments_db["a2"] = {
+        "id": "a2", "patient_id": pid, "status": "completed",
+        "date": today_str, "created_at": "2023-12-01T11:00:00",
+    }
+
+    # Act
+    response = client.get("/dashboard/")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data["recent_appointments"]) == 2, (
+        f"Expected 2 recent_appointments, got {len(data['recent_appointments'])}"
+    )
+
+
+# ---------- Today appointments ----------
+
+
+def test_dashboard_today_appointments_filters_by_date(
+    client: TestClient, create_patient
+) -> None:
+    """today_appointments contains only appointments whose date matches
+    today's date when appointments for today and yesterday are seeded."""
+    # Arrange
+    patient = create_patient()
+    pid = patient["id"]
+    today_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    yesterday_str = (
+        datetime.datetime.utcnow() - datetime.timedelta(days=1)
+    ).strftime("%Y-%m-%d")
+
+    storage.appointments_db["a_today_1"] = {
+        "id": "a_today_1",
+        "patient_id": pid,
+        "status": "scheduled",
+        "date": today_str,
+        "created_at": "2023-12-01T10:00:00",
+    }
+    storage.appointments_db["a_today_2"] = {
+        "id": "a_today_2",
+        "patient_id": pid,
+        "status": "completed",
+        "date": today_str,
+        "created_at": "2023-12-01T11:00:00",
+    }
+    storage.appointments_db["a_yesterday"] = {
+        "id": "a_yesterday",
+        "patient_id": pid,
+        "status": "scheduled",
+        "date": yesterday_str,
+        "created_at": "2023-12-01T09:00:00",
+    }
+
+    # Act
+    response = client.get("/dashboard/")
+
+    # Assert
+    assert response.status_code == 200
+    data = response.json()
+    today_appts = data["today_appointments"]
+    today_ids = {appt["id"] for appt in today_appts}
+    assert len(today_appts) == 2, (
+        f"Expected 2 today_appointments, got {len(today_appts)}"
+    )
+    assert today_ids == {"a_today_1", "a_today_2"}, (
+        f"Expected today appointments a_today_1 and a_today_2, got {today_ids}"
+    )
+
+
+def test_dashboard_today_appointments_empty_when_no_today_appointments(
+    client: TestClient, create_patient
+) -> None:
+    """today_appointments returns empty list when no appointments are
+    scheduled for today."""
+    # Arrange
+    patient = create_patient()
+    pid = patient["id"]
+    yesterday_str = (
+        datetime.datetime.utcnow() - datetime.timedelta(days=1)
+    ).strftime("%Y-%m-%d")
 
     storage.appointments_db["a1"] = {
         "id": "a1",
         "patient_id": pid,
-        "date_time": now.replace(hour=9, minute=0).isoformat(),
-        "status": "completed",
+        "status": "scheduled",
+        "date": yesterday_str,
+        "created_at": "2023-12-01T10:00:00",
     }
     storage.appointments_db["a2"] = {
         "id": "a2",
         "patient_id": pid,
-        "date_time": now.replace(hour=14, minute=0).isoformat(),
         "status": "completed",
+        "date": yesterday_str,
+        "created_at": "2023-12-01T11:00:00",
     }
 
     # Act
@@ -262,34 +458,6 @@ def test_dashboard_patients_seen_today_dedup(
     # Assert
     assert response.status_code == 200
     data = response.json()
-    assert data["patients_seen_today"] == 1, (
-        f"Expected patients_seen_today=1 after dedup, got {data['patients_seen_today']}"
-    )
-
-
-def test_dashboard_scheduled_today_not_counted_as_seen(
-    client: TestClient, create_patient
-) -> None:
-    """GET /dashboard/ with a scheduled (not completed) appointment today
-    returns patients_seen_today=0."""
-    # Arrange
-    patient = create_patient()
-    pid = patient["id"]
-    now = datetime.utcnow()
-
-    storage.appointments_db["a1"] = {
-        "id": "a1",
-        "patient_id": pid,
-        "date_time": now.isoformat(),
-        "status": "scheduled",
-    }
-
-    # Act
-    response = client.get("/dashboard/")
-
-    # Assert
-    assert response.status_code == 200
-    data = response.json()
-    assert data["patients_seen_today"] == 0, (
-        f"Expected patients_seen_today=0 for scheduled-only, got {data['patients_seen_today']}"
+    assert data["today_appointments"] == [], (
+        f"Expected empty today_appointments, got {data['today_appointments']}"
     )

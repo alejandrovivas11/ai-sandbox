@@ -4,7 +4,7 @@ from app.models.appointment import (
     AppointmentStatus,
     AppointmentUpdate,
 )
-from app.models.dashboard import DashboardMetrics
+from app.models.dashboard import DashboardMetrics, DashboardStats
 from app.models.patient import PatientCreate, PatientResponse, PatientUpdate
 
 __all__ = [
@@ -13,6 +13,7 @@ __all__ = [
     "AppointmentStatus",
     "AppointmentUpdate",
     "DashboardMetrics",
+    "DashboardStats",
     "PatientCreate",
     "PatientUpdate",
     "PatientResponse",
