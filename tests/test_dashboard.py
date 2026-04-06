@@ -337,3 +337,215 @@ class TestDashboardDateValidation:
         assert response.status_code == 422, (
             f"Expected 422 for malformed date_to, got {response.status_code}"
         )
+
+
+# ---------------------------------------------------------------------------
+# New test stubs for dashboard analytics and reporting (RED phase)
+# These tests target the /dashboard/metrics endpoint and DashboardResponse
+# schema that do not exist yet -- they are expected to FAIL.
+# ---------------------------------------------------------------------------
+
+
+def test_get_dashboard_metrics_returns_accurate_counts(
+    client: TestClient, create_patient, create_appointment
+) -> None:
+    """AC1: Verify that dashboard metrics endpoint returns accurate total
+    patients, appointments, and status counts with proper aggregation.
+
+    The GET /dashboard/metrics endpoint should aggregate all patients and
+    appointments, returning correct totals and per-status counts.
+    """
+    # Arrange -- create a mix of patients and appointments
+    patient1 = create_patient(first_name="Alice", last_name="Metrics")
+    patient2 = create_patient(
+        first_name="Bob", last_name="Metrics", phone_number="555-888-0001"
+    )
+    patient3 = create_patient(
+        first_name="Carol", last_name="Metrics", phone_number="555-888-0002"
+    )
+
+    now = datetime.utcnow()
+
+    create_appointment(
+        patient_id=patient1["id"],
+        date_time=(now + timedelta(days=3)).isoformat(),
+        appointment_type="checkup",
+        status="scheduled",
+    )
+    create_appointment(
+        patient_id=patient2["id"],
+        date_time=(now - timedelta(days=1)).isoformat(),
+        appointment_type="followup",
+        status="completed",
+    )
+    create_appointment(
+        patient_id=patient3["id"],
+        date_time=(now - timedelta(days=5)).isoformat(),
+        appointment_type="consultation",
+        status="cancelled",
+    )
+    create_appointment(
+        patient_id=patient1["id"],
+        date_time=(now - timedelta(days=2)).isoformat(),
+        appointment_type="checkup",
+        status="completed",
+    )
+
+    # Act -- call the metrics endpoint (does not exist yet)
+    response = client.get("/dashboard/metrics")
+
+    # Assert -- endpoint must exist and return 200
+    assert response.status_code == 200, (
+        f"Expected 200 from /dashboard/metrics, got {response.status_code}"
+    )
+    data = response.json()
+
+    assert data["total_patients"] == 3, (
+        "Metrics should report 3 total patients"
+    )
+    assert data["total_appointments"] == 4, (
+        "Metrics should report 4 total appointments"
+    )
+    assert data["status_counts"]["completed"] == 2, (
+        "Metrics should report 2 completed appointments in status_counts"
+    )
+    assert data["status_counts"]["cancelled"] == 1, (
+        "Metrics should report 1 cancelled appointment in status_counts"
+    )
+    assert data["status_counts"]["scheduled"] == 1, (
+        "Metrics should report 1 scheduled appointment in status_counts"
+    )
+
+
+def test_dashboard_metrics_follows_response_schema(
+    client: TestClient, create_patient, create_appointment
+) -> None:
+    """AC2: Verify that dashboard API endpoint returns properly structured
+    analytics data following DashboardResponse schema format.
+
+    The response must conform to the DashboardResponse Pydantic schema
+    defined in app.schemas, including all required top-level fields.
+    """
+    # Arrange -- create minimal data so response is populated
+    patient = create_patient(first_name="Schema", last_name="Test")
+    now = datetime.utcnow()
+    create_appointment(
+        patient_id=patient["id"],
+        date_time=(now + timedelta(days=1)).isoformat(),
+        appointment_type="checkup",
+        status="scheduled",
+    )
+
+    # Act
+    response = client.get("/dashboard/metrics")
+
+    # Assert -- endpoint returns 200
+    assert response.status_code == 200, (
+        f"Expected 200 from /dashboard/metrics, got {response.status_code}"
+    )
+    data = response.json()
+
+    # Validate that response can be parsed by the DashboardResponse schema
+    from app.schemas import DashboardResponse  # noqa: E402
+
+    parsed = DashboardResponse(**data)
+
+    assert parsed.total_patients >= 0, (
+        "DashboardResponse.total_patients must be a non-negative integer"
+    )
+    assert parsed.total_appointments >= 0, (
+        "DashboardResponse.total_appointments must be a non-negative integer"
+    )
+    assert hasattr(parsed, "status_counts"), (
+        "DashboardResponse must include a status_counts field"
+    )
+    assert hasattr(parsed, "upcoming_appointments"), (
+        "DashboardResponse must include an upcoming_appointments field"
+    )
+
+
+def test_dashboard_supports_date_range_filtering(
+    client: TestClient, create_patient, create_appointment
+) -> None:
+    """AC3: Verify that dashboard endpoint supports date range filtering via
+    start_date/end_date query parameters for trend analysis.
+
+    When start_date and end_date are provided, only appointments and
+    metrics within that window should be included in the response.
+    """
+    # Arrange -- create appointments across different date ranges
+    patient = create_patient(first_name="DateRange", last_name="Test")
+
+    create_appointment(
+        patient_id=patient["id"],
+        date_time="2026-01-15T10:00:00",
+        appointment_type="checkup",
+        status="completed",
+    )
+    create_appointment(
+        patient_id=patient["id"],
+        date_time="2026-02-15T10:00:00",
+        appointment_type="followup",
+        status="completed",
+    )
+    create_appointment(
+        patient_id=patient["id"],
+        date_time="2026-03-15T10:00:00",
+        appointment_type="consultation",
+        status="scheduled",
+    )
+
+    # Act -- filter to February only
+    response = client.get(
+        "/dashboard/metrics",
+        params={"start_date": "2026-02-01", "end_date": "2026-02-28"},
+    )
+
+    # Assert
+    assert response.status_code == 200, (
+        f"Expected 200 from /dashboard/metrics with date filter, "
+        f"got {response.status_code}"
+    )
+    data = response.json()
+
+    assert data["total_appointments"] == 1, (
+        "Date-filtered metrics should include only the 1 appointment in "
+        "the February date range"
+    )
+    assert data["status_counts"]["completed"] == 1, (
+        "The single appointment in February should be counted as completed"
+    )
+
+
+def test_dashboard_endpoint_with_invalid_date_range(
+    client: TestClient,
+) -> None:
+    """AC6: Verify that dashboard API returns 422 error when provided with
+    invalid start_date/end_date parameters.
+
+    Malformed date strings should be rejected by FastAPI's query parameter
+    validation and return a 422 Unprocessable Entity response.
+    """
+    # Act -- send completely invalid date string to /dashboard/metrics
+    response = client.get(
+        "/dashboard/metrics",
+        params={"start_date": "not-a-valid-date", "end_date": "2026-03-31"},
+    )
+
+    # Assert
+    assert response.status_code == 422, (
+        f"Expected 422 for invalid start_date on /dashboard/metrics, "
+        f"got {response.status_code}"
+    )
+
+    # Act -- send valid start but invalid end
+    response2 = client.get(
+        "/dashboard/metrics",
+        params={"start_date": "2026-01-01", "end_date": "31-13-2026"},
+    )
+
+    # Assert
+    assert response2.status_code == 422, (
+        f"Expected 422 for invalid end_date on /dashboard/metrics, "
+        f"got {response2.status_code}"
+    )
