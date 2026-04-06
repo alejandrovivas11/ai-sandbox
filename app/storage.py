@@ -20,10 +20,15 @@ class SQLStorage:
         self._conn.execute("PRAGMA foreign_keys = ON")
         run_migrations(self._conn)
 
-    @property
-    def connection(self) -> sqlite3.Connection:
-        """Expose the underlying connection for advanced use."""
-        return self._conn
+    def execute(self, sql: str, params: object = None) -> sqlite3.Cursor:
+        """Execute SQL on the underlying connection.
+
+        Provides a patchable entry point for analytics queries so that
+        tests can verify parameterized SQL usage.
+        """
+        if params is not None:
+            return self._conn.execute(sql, params)
+        return self._conn.execute(sql)
 
     # ------------------------------------------------------------------ #
     #  Helpers                                                            #
@@ -272,6 +277,121 @@ class SQLStorage:
         )
         self._conn.commit()
         return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------ #
+    #  Analytics operations                                               #
+    # ------------------------------------------------------------------ #
+
+    def count_patients_by_period(
+        self,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> int:
+        """Count patients created within a date range using parameterized SQL."""
+        query = "SELECT COUNT(*) FROM patients WHERE 1=1"
+        params: list[str] = []
+        if date_from is not None:
+            query += " AND created_at >= ?"
+            params.append(date_from)
+        if date_to is not None:
+            query += " AND created_at < ?"
+            params.append(date_to)
+        row = self.execute(query, params).fetchone()
+        return row[0]
+
+    def count_appointments_by_status(
+        self,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> dict[str, int]:
+        """Count appointments grouped by status with optional date filtering."""
+        query = "SELECT status, COUNT(*) as count FROM appointments WHERE 1=1"
+        params: list[str] = []
+        if date_from is not None:
+            query += " AND date_time >= ?"
+            params.append(date_from)
+        if date_to is not None:
+            query += " AND date_time <= ?"
+            params.append(date_to)
+        query += " GROUP BY status"
+        rows = self.execute(query, params).fetchall()
+        return {row["status"]: row["count"] for row in rows}
+
+    def get_recent_activities(self, limit: int = 20) -> dict[str, list[dict]]:
+        """Get recent patient and appointment events for the activity feed."""
+        patient_rows = self.execute(
+            "SELECT id, first_name, last_name, created_at "
+            "FROM patients ORDER BY created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+        appointment_rows = self.execute(
+            "SELECT a.id, a.appointment_type, a.status, a.created_at, "
+            "p.first_name, p.last_name "
+            "FROM appointments a JOIN patients p ON a.patient_id = p.id "
+            "ORDER BY a.created_at DESC LIMIT ?",
+            (limit,),
+        ).fetchall()
+
+        return {
+            "patients": [dict(r) for r in patient_rows],
+            "appointments": [dict(r) for r in appointment_rows],
+        }
+
+    def get_upcoming_appointments(self) -> list[dict]:
+        """Get appointments scheduled in the future with patient info."""
+        now = datetime.utcnow().isoformat()
+        rows = self.execute(
+            """SELECT a.*, p.first_name, p.last_name
+               FROM appointments a
+               JOIN patients p ON a.patient_id = p.id
+               WHERE a.date_time > ? AND a.status = 'scheduled'
+               ORDER BY a.date_time""",
+            (now,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_patient_growth_data(self) -> list[dict]:
+        """Get patient registration trends grouped by date."""
+        rows = self.execute(
+            """SELECT date(created_at) as registration_date, COUNT(*) as count
+               FROM patients
+               GROUP BY date(created_at)
+               ORDER BY registration_date"""
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_dashboard_stats(self) -> dict:
+        """Get aggregated dashboard statistics with SQL aggregations."""
+        now = datetime.utcnow()
+        first_of_month = now.replace(
+            day=1, hour=0, minute=0, second=0, microsecond=0
+        )
+        today = now.date().isoformat()
+
+        total_patients = self.execute(
+            "SELECT COUNT(*) FROM patients"
+        ).fetchone()[0]
+
+        new_this_month = self.execute(
+            "SELECT COUNT(*) FROM patients WHERE created_at >= ?",
+            (first_of_month.isoformat(),),
+        ).fetchone()[0]
+
+        appointments_today = self.execute(
+            "SELECT COUNT(*) FROM appointments WHERE date(date_time) = ?",
+            (today,),
+        ).fetchone()[0]
+
+        status_counts = self.count_appointments_by_status()
+        total_appointments = sum(status_counts.values())
+
+        return {
+            "total_patients": total_patients,
+            "total_appointments": total_appointments,
+            "appointments_today": appointments_today,
+            "new_patients_this_month": new_this_month,
+        }
 
     # ------------------------------------------------------------------ #
     #  Utility                                                            #
