@@ -23,7 +23,7 @@ def create_appointment(data: AppointmentCreate) -> dict:
             detail=f"Patient {data.patient_id} not found",
         )
     if appointment_service.has_scheduling_conflict(
-        data.patient_id, data.date_time, data.duration_minutes
+        data.patient_id, data.datetime, 30
     ):
         raise HTTPException(
             status_code=409,

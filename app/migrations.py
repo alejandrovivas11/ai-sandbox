@@ -26,10 +26,10 @@ SQL_CREATE_APPOINTMENTS_TABLE = """
 CREATE TABLE IF NOT EXISTS appointments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id INTEGER NOT NULL,
-    date_time TEXT NOT NULL,
-    appointment_type TEXT NOT NULL,
+    doctor_name TEXT NOT NULL DEFAULT '',
+    datetime TEXT NOT NULL,
     status TEXT NOT NULL DEFAULT 'scheduled',
-    duration_minutes INTEGER NOT NULL DEFAULT 30,
+    notes TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (patient_id) REFERENCES patients(id)
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS appointments (
 
 SQL_CREATE_INDEXES = [
     "CREATE INDEX IF NOT EXISTS idx_appointments_patient_id ON appointments(patient_id);",
-    "CREATE INDEX IF NOT EXISTS idx_appointments_date_time ON appointments(date_time);",
+    "CREATE INDEX IF NOT EXISTS idx_appointments_datetime ON appointments(datetime);",
     "CREATE INDEX IF NOT EXISTS idx_appointments_status ON appointments(status);",
     "CREATE INDEX IF NOT EXISTS idx_patients_last_name ON patients(last_name);",
 ]
