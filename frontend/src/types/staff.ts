@@ -14,6 +14,20 @@ export interface StaffMember {
   payrollStatus: PayrollStatus
   startDate: string
   phone: string
+  address?: string
+  emergency_contact?: string
+  employee_id?: string
+  position?: string
+  start_date?: string
+  work_location?: string
+  pay_type?: string
+  pay_rate?: number
+  pay_frequency?: string
+  benefits_enrolled?: string
+  earnings?: number
+  clients_count?: number
+  utilized_hours?: number
+  cancelled_hours?: number
   createdAt?: string
   updatedAt?: string
 }
@@ -29,6 +43,20 @@ export interface CreateStaffRequest {
   payrollStatus: PayrollStatus
   startDate: string
   phone: string
+  address?: string
+  emergency_contact?: string
+  employee_id?: string
+  position?: string
+  start_date?: string
+  work_location?: string
+  pay_type?: string
+  pay_rate?: number
+  pay_frequency?: string
+  benefits_enrolled?: string
+  earnings?: number
+  clients_count?: number
+  utilized_hours?: number
+  cancelled_hours?: number
 }
 
 export interface UpdateStaffRequest extends Partial<CreateStaffRequest> {
