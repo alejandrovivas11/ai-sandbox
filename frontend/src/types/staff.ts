@@ -15,3 +15,34 @@ export interface StaffMember {
   startDate: string
   phone: string
 }
+
+export interface CreateStaffRequest {
+  name: string
+  role: string
+  department: string
+  email: string
+  phone?: string
+  status?: string
+  hireDate?: string
+}
+
+export interface UpdateStaffRequest {
+  name?: string
+  role?: string
+  department?: string
+  email?: string
+  phone?: string
+  status?: string
+  hireDate?: string
+}
+
+export interface StaffApiResponse {
+  id: number
+  name: string
+  role: string
+  department: string
+  email: string
+  phone: string | null
+  status: string
+  hireDate: string | null
+}
