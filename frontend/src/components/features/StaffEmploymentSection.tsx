@@ -2,24 +2,11 @@
 
 import type { StaffMember } from "@/types/staff"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
-import { H2, P, Small } from "@/components/ui/Typography"
+import { H2 } from "@/components/ui/Typography"
+import { DescriptionItem } from "@/components/blocks"
 
 interface StaffEmploymentSectionProps {
   staff: StaffMember
-}
-
-interface DescriptionItemProps {
-  label: string
-  value: string | undefined
-}
-
-function DescriptionItem({ label, value }: DescriptionItemProps) {
-  return (
-    <div className="py-3 border-b border-border last:border-b-0">
-      <Small className="text-muted-foreground">{label}</Small>
-      <P className="mt-1">{value || "Not provided"}</P>
-    </div>
-  )
 }
 
 export function StaffEmploymentSection({ staff }: StaffEmploymentSectionProps) {

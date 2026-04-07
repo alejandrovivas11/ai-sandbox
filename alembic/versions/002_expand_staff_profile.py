@@ -19,7 +19,7 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.add_column("staff", sa.Column("address", sa.String(), nullable=True))
     op.add_column("staff", sa.Column("emergency_contact", sa.String(), nullable=True))
-    op.add_column("staff", sa.Column("employee_id", sa.String(), nullable=True, unique=True))
+    op.add_column("staff", sa.Column("employee_id", sa.String(), nullable=True))
     op.add_column("staff", sa.Column("position", sa.String(), nullable=True))
     op.add_column("staff", sa.Column("start_date", sa.DateTime(), nullable=True))
     op.add_column("staff", sa.Column("work_location", sa.String(), nullable=True))
@@ -31,9 +31,11 @@ def upgrade() -> None:
     op.add_column("staff", sa.Column("clients_count", sa.Integer(), nullable=True, default=0))
     op.add_column("staff", sa.Column("utilized_hours", sa.Float(), nullable=True, default=0.0))
     op.add_column("staff", sa.Column("cancelled_hours", sa.Float(), nullable=True, default=0.0))
+    op.create_unique_constraint('uq_staff_employee_id', 'staff', ['employee_id'])
 
 
 def downgrade() -> None:
+    op.drop_constraint('uq_staff_employee_id', 'staff')
     op.drop_column("staff", "cancelled_hours")
     op.drop_column("staff", "utilized_hours")
     op.drop_column("staff", "clients_count")
