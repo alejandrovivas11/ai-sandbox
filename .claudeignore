@@ -1,0 +1,8 @@
+# Design system internals — agent should use COMPONENTS.md registry instead
+frontend/src/components/ui/
+frontend/src/components/blocks/
+frontend/src/components/composed/
+frontend/src/lib/
+frontend/src/types/
+**/*.stories.tsx
+**/*.stories.ts
