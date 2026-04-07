@@ -22,19 +22,19 @@ export function StaffOverviewSection({ staff }: StaffOverviewSectionProps) {
       <H2>Overview</H2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatisticCard
-          title="Earnings"
+          header="Earnings"
           value={formatCurrency(staff.earnings ?? 0)}
         />
         <StatisticCard
-          title="Clients"
+          header="Clients"
           value={staff.clients_count ?? 0}
         />
         <StatisticCard
-          title="Utilized Hours"
+          header="Utilized Hours"
           value={staff.utilized_hours ?? 0}
         />
         <StatisticCard
-          title="Cancelled Hours"
+          header="Cancelled Hours"
           value={staff.cancelled_hours ?? 0}
         />
       </div>
