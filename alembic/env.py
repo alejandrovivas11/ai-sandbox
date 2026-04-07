@@ -5,7 +5,6 @@ from sqlalchemy import engine_from_config, pool
 from alembic import context
 
 from app.database import Base
-from app.models import Staff  # noqa: F401 - imported for autogenerate
 
 logger = logging.getLogger(__name__)
 
