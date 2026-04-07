@@ -1,4 +1,4 @@
-import { Breadcrumbs } from "@/components/Navigation/Breadcrumbs"
+import { Breadcrumbs } from "@/components/navigation"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card"
 import { H2, Muted } from "@/components/ui/Typography"
 

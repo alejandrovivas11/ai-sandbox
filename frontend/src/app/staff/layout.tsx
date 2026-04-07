@@ -1,5 +1,5 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/Sidebar"
-import { AppSidebar } from "@/components/Navigation/Sidebar"
+import { AppSidebar } from "@/components/navigation"
 import { QueryProvider } from "@/providers/QueryProvider"
 
 export default function StaffLayout({

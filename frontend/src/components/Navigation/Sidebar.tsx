@@ -4,7 +4,7 @@ import * as React from "react"
 import { usePathname } from "next/navigation"
 import { Home, Users, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { NavItem } from "@/components/Navigation/NavItem"
+import { NavItem } from "./NavItem"
 
 const navItems = [
   { href: "/", icon: Home, label: "Dashboard" },
