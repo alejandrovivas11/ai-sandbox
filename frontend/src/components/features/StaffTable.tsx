@@ -5,7 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table"
 import { DataTable } from "@/components/ui/DataTable"
 import { Badge } from "@/components/ui/Badge"
 import { Button } from "@/components/ui/Button"
-import { Spinner } from "@/components/ui/Spinner"
+import { Input } from "@/components/ui/Input"
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -27,8 +27,6 @@ import { Skeleton } from "@/components/ui/Skeleton"
 import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/Alert"
 import { Search, Filter, Download, Plus, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react"
 import type { StaffMember, StaffStatus } from "@/types/staff"
-import { useStaff } from "@/hooks/useStaff"
-import { StaffFormDialog } from "@/components/features/StaffFormDialog"
 
 const statusVariant: Record<StaffStatus, "default" | "secondary" | "destructive" | "outline"> = {
   Active: "default",
@@ -42,9 +40,7 @@ const columns: ColumnDef<StaffMember>[] = [
     header: "Name",
     accessorFn: (row) => `${row.firstName} ${row.lastName}`,
     cell: ({ row }) => {
-      const first = row.original.firstName || ""
-      const last = row.original.lastName || ""
-      const initials = `${first[0] ?? ""}${last[0] ?? ""}`
+      const initials = `${row.original.firstName[0]}${row.original.lastName[0]}`
       return (
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
@@ -52,7 +48,7 @@ const columns: ColumnDef<StaffMember>[] = [
           </Avatar>
           <div>
             <div className="font-medium text-sm">
-              {first} {last}
+              {row.original.firstName} {row.original.lastName}
             </div>
             <div className="text-xs text-muted-foreground">{row.original.email}</div>
           </div>
@@ -173,25 +169,27 @@ export function StaffTable({
   const [roleFilter, setRoleFilter] = React.useState<Set<string>>(new Set())
   const [page, setPage] = React.useState(0)
   const [pageSize, setPageSize] = React.useState(10)
-  const [dialogOpen, setDialogOpen] = React.useState(false)
-  const [editingStaff, setEditingStaff] = React.useState<StaffMember | null>(null)
 
   const allRoles = React.useMemo(() => Array.from(new Set(data.map((s) => s.role))).sort(), [data])
 
   const filtered = React.useMemo(() => {
     return data.filter((s) => {
+      const matchesSearch =
+        search === "" ||
+        `${s.firstName} ${s.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
+        s.email.toLowerCase().includes(search.toLowerCase())
       const matchesStatus = statusFilter.size === 0 || statusFilter.has(s.status)
       const matchesRole = roleFilter.size === 0 || roleFilter.has(s.role)
-      return matchesStatus && matchesRole
+      return matchesSearch && matchesStatus && matchesRole
     })
-  }, [data, statusFilter, roleFilter])
+  }, [data, search, statusFilter, roleFilter])
 
   const totalPages = Math.ceil(filtered.length / pageSize)
   const paginatedData = filtered.slice(page * pageSize, (page + 1) * pageSize)
 
   React.useEffect(() => {
     setPage(0)
-  }, [searchQuery, statusFilter, roleFilter, pageSize])
+  }, [search, statusFilter, roleFilter, pageSize])
 
   const toggleStatus = (status: StaffStatus) => {
     setStatusFilter((prev) => {
@@ -234,6 +232,15 @@ export function StaffTable({
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-2 flex-1">
+          <div className="relative max-w-sm flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by name or email..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9"
+            />
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm">
