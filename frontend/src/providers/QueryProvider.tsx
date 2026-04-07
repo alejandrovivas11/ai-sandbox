@@ -1,28 +1,27 @@
 "use client"
 
 import * as React from "react"
+import type { StaffMember } from "@/types/staff"
 
-interface QueryContextValue {
-  /** Incremented on each invalidation to trigger re-fetches */
-  version: number
-  /** Call after any mutation to signal data staleness */
+interface QueryState {
+  staffData: StaffMember[]
+  setStaffData: (data: StaffMember[]) => void
   invalidate: () => void
+  version: number
 }
 
-const QueryContext = React.createContext<QueryContextValue>({
-  version: 0,
-  invalidate: () => {},
-})
+const QueryContext = React.createContext<QueryState | null>(null)
 
-export function useQueryClient() {
-  return React.useContext(QueryContext)
+export function useQueryContext() {
+  const context = React.useContext(QueryContext)
+  if (!context) {
+    throw new Error("useQueryContext must be used within a QueryProvider")
+  }
+  return context
 }
 
-interface QueryProviderProps {
-  children: React.ReactNode
-}
-
-export function QueryProvider({ children }: QueryProviderProps) {
+export function QueryProvider({ children }: { children: React.ReactNode }) {
+  const [staffData, setStaffData] = React.useState<StaffMember[]>([])
   const [version, setVersion] = React.useState(0)
 
   const invalidate = React.useCallback(() => {
@@ -30,8 +29,8 @@ export function QueryProvider({ children }: QueryProviderProps) {
   }, [])
 
   const value = React.useMemo(
-    () => ({ version, invalidate }),
-    [version, invalidate]
+    () => ({ staffData, setStaffData, invalidate, version }),
+    [staffData, setStaffData, invalidate, version]
   )
 
   return (

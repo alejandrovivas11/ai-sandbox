@@ -22,8 +22,10 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/Select"
-import { Alert, AlertDescription } from "@/components/ui/Alert"
-import { Filter, Download, Plus, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react"
+import { Spinner } from "@/components/ui/Spinner"
+import { Skeleton } from "@/components/ui/Skeleton"
+import { Alert, AlertContent, AlertTitle, AlertDescription } from "@/components/ui/Alert"
+import { Search, Filter, Download, Plus, ChevronLeft, ChevronRight, AlertCircle } from "lucide-react"
 import type { StaffMember, StaffStatus } from "@/types/staff"
 import { useStaff } from "@/hooks/useStaff"
 import { StaffFormDialog } from "@/components/features/StaffFormDialog"
@@ -127,13 +129,46 @@ function exportToCsv(data: StaffMember[]) {
   URL.revokeObjectURL(url)
 }
 
-interface StaffTableProps {
-  searchQuery?: string
+function TableSkeleton() {
+  return (
+    <div className="space-y-3">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 py-3">
+          <Skeleton className="h-8 w-8 rounded-full" />
+          <div className="flex-1 space-y-2">
+            <Skeleton className="h-4 w-[200px]" />
+            <Skeleton className="h-3 w-[150px]" />
+          </div>
+          <Skeleton className="h-5 w-[70px]" />
+          <Skeleton className="h-4 w-[120px]" />
+          <Skeleton className="h-5 w-[80px]" />
+          <Skeleton className="h-5 w-[70px]" />
+        </div>
+      ))}
+    </div>
+  )
 }
 
-export function StaffTable({ searchQuery }: StaffTableProps) {
-  const { data, isLoading, error } = useStaff({ search: searchQuery })
+interface StaffTableProps {
+  data: StaffMember[]
+  isLoading?: boolean
+  isError?: boolean
+  error?: Error | null
+  onRetry?: () => void
+  onAddStaff?: () => void
+  onEditStaff?: (member: StaffMember) => void
+  onDeleteStaff?: (id: string) => void
+}
 
+export function StaffTable({
+  data,
+  isLoading,
+  isError,
+  error,
+  onRetry,
+  onAddStaff,
+}: StaffTableProps) {
+  const [search, setSearch] = React.useState("")
   const [statusFilter, setStatusFilter] = React.useState<Set<StaffStatus>>(new Set())
   const [roleFilter, setRoleFilter] = React.useState<Set<string>>(new Set())
   const [page, setPage] = React.useState(0)
@@ -176,27 +211,21 @@ export function StaffTable({ searchQuery }: StaffTableProps) {
     })
   }
 
-  const handleAddStaff = () => {
-    setEditingStaff(null)
-    setDialogOpen(true)
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <Spinner className="mr-2" />
-        <span className="text-sm text-muted-foreground">Loading staff members...</span>
-      </div>
-    )
-  }
-
-  if (error) {
+  if (isError) {
     return (
       <Alert variant="destructive">
         <AlertCircle className="h-4 w-4" />
-        <AlertDescription>
-          Failed to load staff data: {error}
-        </AlertDescription>
+        <AlertContent>
+          <AlertTitle>Failed to load staff data</AlertTitle>
+          <AlertDescription className="flex items-center gap-2">
+            {error?.message || "An unexpected error occurred."}
+            {onRetry && (
+              <Button variant="outline" size="sm" onClick={onRetry} className="ml-2">
+                Retry
+              </Button>
+            )}
+          </AlertDescription>
+        </AlertContent>
       </Alert>
     )
   }
@@ -247,64 +276,72 @@ export function StaffTable({ searchQuery }: StaffTableProps) {
             <Download className="mr-2 h-4 w-4" />
             Export CSV
           </Button>
-          <Button size="sm" onClick={handleAddStaff}>
+          <Button size="sm" onClick={onAddStaff}>
             <Plus className="mr-2 h-4 w-4" />
             Add Staff
           </Button>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {isLoading ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-center py-4">
+            <Spinner className="mr-2" />
+            <span className="text-sm text-muted-foreground">Loading staff data...</span>
+          </div>
+          <TableSkeleton />
+        </div>
+      ) : data.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="text-sm text-muted-foreground">No staff members found.</p>
+          <p className="text-muted-foreground text-sm">No staff members found.</p>
+          <Button size="sm" className="mt-4" onClick={onAddStaff}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add your first staff member
+          </Button>
         </div>
       ) : (
-        <DataTable columns={columns} data={paginatedData} />
+        <>
+          <DataTable columns={columns} data={paginatedData} />
+
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-muted-foreground">
+              Showing {filtered.length === 0 ? 0 : page * pageSize + 1} to{" "}
+              {Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length} staff members
+            </div>
+            <div className="flex items-center gap-2">
+              <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
+                <SelectTrigger className="w-[100px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="5">5 / page</SelectItem>
+                  <SelectItem value="10">10 / page</SelectItem>
+                  <SelectItem value="20">20 / page</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Page {totalPages === 0 ? 0 : page + 1} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="icon-sm"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </>
       )}
-
-      <div className="flex items-center justify-between">
-        <div className="text-sm text-muted-foreground">
-          Showing {filtered.length === 0 ? 0 : page * pageSize + 1} to{" "}
-          {Math.min((page + 1) * pageSize, filtered.length)} of {filtered.length} staff members
-        </div>
-        <div className="flex items-center gap-2">
-          <Select value={String(pageSize)} onValueChange={(v) => setPageSize(Number(v))}>
-            <SelectTrigger className="w-[100px] h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="5">5 / page</SelectItem>
-              <SelectItem value="10">10 / page</SelectItem>
-              <SelectItem value="20">20 / page</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => setPage((p) => Math.max(0, p - 1))}
-            disabled={page === 0}
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground">
-            Page {totalPages === 0 ? 0 : page + 1} of {totalPages}
-          </span>
-          <Button
-            variant="outline"
-            size="icon-sm"
-            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-            disabled={page >= totalPages - 1}
-          >
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
-      <StaffFormDialog
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        staff={editingStaff}
-      />
     </div>
   )
 }

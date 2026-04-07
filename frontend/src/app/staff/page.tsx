@@ -4,18 +4,34 @@ import * as React from "react"
 import { H2, Muted } from "@/components/ui/Typography"
 import { Input } from "@/components/ui/Input"
 import { StaffTable } from "@/components/features/StaffTable"
-import { Search } from "lucide-react"
+import { StaffFormDialog } from "@/components/features/StaffFormDialog"
+import { useStaff } from "@/hooks/useStaff"
+import { useDeleteStaff } from "@/hooks/useDeleteStaff"
+import type { StaffMember } from "@/types/staff"
 
 export default function StaffPage() {
-  const [search, setSearch] = React.useState("")
-  const [debouncedSearch, setDebouncedSearch] = React.useState("")
+  const { data, isLoading, isError, error, refetch } = useStaff()
+  const [dialogOpen, setDialogOpen] = React.useState(false)
+  const [editingStaff, setEditingStaff] = React.useState<StaffMember | null>(null)
 
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedSearch(search)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [search])
+  const deleteMutation = useDeleteStaff(
+    () => refetch(),
+    () => {}
+  )
+
+  const handleAddStaff = () => {
+    setEditingStaff(null)
+    setDialogOpen(true)
+  }
+
+  const handleEditStaff = (member: StaffMember) => {
+    setEditingStaff(member)
+    setDialogOpen(true)
+  }
+
+  const handleDeleteStaff = (id: string) => {
+    deleteMutation.mutate(id)
+  }
 
   return (
     <div className="space-y-6">
@@ -34,7 +50,21 @@ export default function StaffPage() {
           />
         </div>
       </div>
-      <StaffTable searchQuery={debouncedSearch} />
+      <StaffTable
+        data={data}
+        isLoading={isLoading}
+        isError={isError}
+        error={error}
+        onRetry={refetch}
+        onAddStaff={handleAddStaff}
+        onEditStaff={handleEditStaff}
+        onDeleteStaff={handleDeleteStaff}
+      />
+      <StaffFormDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        staff={editingStaff}
+      />
     </div>
   )
 }

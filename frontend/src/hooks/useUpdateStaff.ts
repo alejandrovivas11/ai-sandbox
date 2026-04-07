@@ -1,50 +1,60 @@
 "use client"
 
 import * as React from "react"
-import type { StaffMember, UpdateStaffRequest } from "@/types/staff"
 import { updateStaff } from "@/services/staffApi"
-import { useQueryClient } from "@/providers/QueryProvider"
-
-interface UseUpdateStaffOptions {
-  onSuccess?: (data: StaffMember) => void
-  onError?: (error: string) => void
-}
+import { useQueryContext } from "@/providers/QueryProvider"
+import type { CreateStaffRequest, StaffMember } from "@/types/staff"
 
 interface UseUpdateStaffResult {
-  mutate: (id: string, request: UpdateStaffRequest) => void
+  mutate: (id: string, data: Partial<CreateStaffRequest>) => void
   isLoading: boolean
-  error: string | null
+  isError: boolean
+  error: Error | null
+  isSuccess: boolean
 }
 
 export function useUpdateStaff(
-  options?: UseUpdateStaffOptions
+  onSuccess?: (member: StaffMember) => void,
+  onError?: (error: Error) => void
 ): UseUpdateStaffResult {
-  const { invalidate } = useQueryClient()
+  const { staffData, setStaffData, invalidate } = useQueryContext()
   const [isLoading, setIsLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [isError, setIsError] = React.useState(false)
+  const [error, setError] = React.useState<Error | null>(null)
+  const [isSuccess, setIsSuccess] = React.useState(false)
 
   const mutate = React.useCallback(
-    (id: string, request: UpdateStaffRequest) => {
+    (id: string, data: Partial<CreateStaffRequest>) => {
       setIsLoading(true)
+      setIsError(false)
       setError(null)
+      setIsSuccess(false)
 
-      updateStaff(id, request)
-        .then((result) => {
+      const previousData = [...staffData]
+      setStaffData(
+        staffData.map((member) =>
+          member.id === id ? { ...member, ...data } : member
+        )
+      )
+
+      updateStaff(id, data)
+        .then((updated) => {
+          setIsLoading(false)
+          setIsSuccess(true)
           invalidate()
-          options?.onSuccess?.(result)
+          onSuccess?.(updated)
         })
         .catch((err) => {
-          const message =
-            err instanceof Error ? err.message : "Failed to update staff"
-          setError(message)
-          options?.onError?.(message)
-        })
-        .finally(() => {
+          setStaffData(previousData)
+          const e = err instanceof Error ? err : new Error(String(err))
+          setIsError(true)
+          setError(e)
           setIsLoading(false)
+          onError?.(e)
         })
     },
-    [invalidate, options]
+    [staffData, setStaffData, invalidate, onSuccess, onError]
   )
 
-  return { mutate, isLoading, error }
+  return { mutate, isLoading, isError, error, isSuccess }
 }

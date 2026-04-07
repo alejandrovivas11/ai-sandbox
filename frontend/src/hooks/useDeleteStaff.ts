@@ -2,48 +2,54 @@
 
 import * as React from "react"
 import { deleteStaff } from "@/services/staffApi"
-import { useQueryClient } from "@/providers/QueryProvider"
-
-interface UseDeleteStaffOptions {
-  onSuccess?: () => void
-  onError?: (error: string) => void
-}
+import { useQueryContext } from "@/providers/QueryProvider"
 
 interface UseDeleteStaffResult {
   mutate: (id: string) => void
   isLoading: boolean
-  error: string | null
+  isError: boolean
+  error: Error | null
+  isSuccess: boolean
 }
 
 export function useDeleteStaff(
-  options?: UseDeleteStaffOptions
+  onSuccess?: () => void,
+  onError?: (error: Error) => void
 ): UseDeleteStaffResult {
-  const { invalidate } = useQueryClient()
+  const { staffData, setStaffData, invalidate } = useQueryContext()
   const [isLoading, setIsLoading] = React.useState(false)
-  const [error, setError] = React.useState<string | null>(null)
+  const [isError, setIsError] = React.useState(false)
+  const [error, setError] = React.useState<Error | null>(null)
+  const [isSuccess, setIsSuccess] = React.useState(false)
 
   const mutate = React.useCallback(
     (id: string) => {
       setIsLoading(true)
+      setIsError(false)
       setError(null)
+      setIsSuccess(false)
+
+      const previousData = [...staffData]
+      setStaffData(staffData.filter((member) => member.id !== id))
 
       deleteStaff(id)
         .then(() => {
+          setIsLoading(false)
+          setIsSuccess(true)
           invalidate()
-          options?.onSuccess?.()
+          onSuccess?.()
         })
         .catch((err) => {
-          const message =
-            err instanceof Error ? err.message : "Failed to delete staff"
-          setError(message)
-          options?.onError?.(message)
-        })
-        .finally(() => {
+          setStaffData(previousData)
+          const e = err instanceof Error ? err : new Error(String(err))
+          setIsError(true)
+          setError(e)
           setIsLoading(false)
+          onError?.(e)
         })
     },
-    [invalidate, options]
+    [staffData, setStaffData, invalidate, onSuccess, onError]
   )
 
-  return { mutate, isLoading, error }
+  return { mutate, isLoading, isError, error, isSuccess }
 }

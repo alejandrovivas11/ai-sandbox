@@ -1,53 +1,46 @@
 "use client"
 
 import * as React from "react"
-import type { StaffMember } from "@/types/staff"
 import { getAllStaff } from "@/services/staffApi"
-import { useQueryClient } from "@/providers/QueryProvider"
-
-interface UseStaffParams {
-  search?: string
-  role?: string
-  department?: string
-}
+import { useQueryContext } from "@/providers/QueryProvider"
+import type { StaffMember } from "@/types/staff"
 
 interface UseStaffResult {
   data: StaffMember[]
   isLoading: boolean
-  error: string | null
+  isError: boolean
+  error: Error | null
   refetch: () => void
 }
 
-export function useStaff(params?: UseStaffParams): UseStaffResult {
-  const { version } = useQueryClient()
-  const [data, setData] = React.useState<StaffMember[]>([])
+export function useStaff(): UseStaffResult {
+  const { staffData, setStaffData, version } = useQueryContext()
   const [isLoading, setIsLoading] = React.useState(true)
-  const [error, setError] = React.useState<string | null>(null)
-  const [refetchCount, setRefetchCount] = React.useState(0)
+  const [isError, setIsError] = React.useState(false)
+  const [error, setError] = React.useState<Error | null>(null)
+  const [fetchCount, setFetchCount] = React.useState(0)
 
   const refetch = React.useCallback(() => {
-    setRefetchCount((c) => c + 1)
+    setFetchCount((c) => c + 1)
   }, [])
 
   React.useEffect(() => {
     let cancelled = false
     setIsLoading(true)
+    setIsError(false)
     setError(null)
 
-    getAllStaff({
-      search: params?.search,
-      role: params?.role,
-      department: params?.department,
-    })
-      .then((result) => {
+    getAllStaff()
+      .then((data) => {
         if (!cancelled) {
-          setData(result)
+          setStaffData(data)
           setIsLoading(false)
         }
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to fetch staff")
+          setIsError(true)
+          setError(err instanceof Error ? err : new Error(String(err)))
           setIsLoading(false)
         }
       })
@@ -55,7 +48,7 @@ export function useStaff(params?: UseStaffParams): UseStaffResult {
     return () => {
       cancelled = true
     }
-  }, [params?.search, params?.role, params?.department, version, refetchCount])
+  }, [version, fetchCount, setStaffData])
 
-  return { data, isLoading, error, refetch }
+  return { data: staffData, isLoading, isError, error, refetch }
 }
