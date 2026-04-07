@@ -1,18 +1,21 @@
 # Multi-stage optimized Dockerfile for FastAPI backend
+
+# Stage 1: Builder
 FROM python:3.11-slim as builder
 
-WORKDIR /tmp
+WORKDIR /build
 
 # Install system dependencies needed for building Python packages
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install in builder stage
+# Copy requirements and build wheels
 COPY requirements.txt .
-RUN pip install --user --no-cache-dir -r requirements.txt
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels -r requirements.txt
 
-# Runtime stage
+
+# Stage 2: Runtime
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -23,21 +26,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /home/appuser/.local
-
-# Create non-root user for security
+# Create non-root user for security before copying files
 RUN useradd -m -u 1000 appuser
 
-# Copy application code
+# Copy wheels from builder and install
+COPY --from=builder /build/wheels /wheels
+COPY requirements.txt .
+RUN pip install --no-cache /wheels/* && rm -rf /wheels
+
+# Copy application code with correct ownership
 COPY --chown=appuser:appuser ./app ./app
 COPY --chown=appuser:appuser ./alembic ./alembic
 COPY --chown=appuser:appuser ./alembic.ini .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PATH=/home/appuser/.local/bin:$PATH
+    PYTHONDONTWRITEBYTECODE=1
 
 # Create data directory with proper ownership
 RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
