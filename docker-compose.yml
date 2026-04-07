@@ -1,6 +1,59 @@
 version: '3.9'
 
 services:
+  # PostgreSQL database service
+  postgres:
+    image: postgres:16-alpine
+    container_name: ai-sandbox-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-ai_sandbox}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - ai-sandbox-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+
+  # Database migration service - runs before API starts
+  db-init:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ai-sandbox-db-init
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_sandbox}}
+      PYTHONUNBUFFERED: 1
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./alembic:/app/alembic:ro
+      - ./alembic.ini:/app/alembic.ini:ro
+      - ./app:/app/app:ro
+    networks:
+      - ai-sandbox-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: alembic upgrade head
+    restart: "no"
+
   # Backend service - FastAPI application
   backend:
     build:
@@ -10,15 +63,22 @@ services:
     ports:
       - "3001:3001"
     environment:
-      DATABASE_URL: sqlite:///./data/staff.db
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${POSTGRES_DB:-ai_sandbox}}
       DEBUG: ${DEBUG:-False}
       APP_TITLE: ${APP_TITLE:-AI Sandbox}
       APP_VERSION: ${APP_VERSION:-0.1.0}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      BACKEND_HOST: ${BACKEND_HOST:-0.0.0.0}
+      BACKEND_PORT: ${BACKEND_PORT:-3001}
     volumes:
       - backend-data:/app/data
       - ./app:/app/app:ro
       - ./alembic:/app/alembic:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
     networks:
       - ai-sandbox-network
     healthcheck:
@@ -26,7 +86,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 10s
     logging:
       driver: "json-file"
       options:
@@ -66,6 +126,7 @@ services:
 
 volumes:
   backend-data: {}
+  postgres-data: {}
 
 networks:
   ai-sandbox-network:

@@ -25,11 +25,15 @@ pip-delete-this-directory.txt
 .pytest_cache/
 .coverage
 htmlcov/
+.mypy_cache/
+.dmypy.json
+dmypy.json
 
 # Virtual environments
 venv/
 ENV/
 env/
+.venv/
 
 # IDE
 .vscode/
@@ -43,6 +47,12 @@ env/
 .git/
 .gitignore
 .gitattributes
+.gitmodules
+
+# Tests and test fixtures
+tests/
+test_*.py
+*_test.py
 
 # Next.js frontend
 frontend/node_modules/
@@ -50,11 +60,13 @@ frontend/.next/
 frontend/out/
 frontend/.env.local
 frontend/.env.*.local
+frontend/.vercel/
 
 # Node.js
 node_modules/
 npm-debug.log
 yarn-error.log
+pnpm-debug.log
 
 # Project files
 *.db
@@ -68,6 +80,10 @@ docker-compose.override.yml
 *.md
 README*
 LICENSE
+docs/
 
 # Misc
 .claudeignore
+.editorconfig
+.prettierrc
+.eslintignore
