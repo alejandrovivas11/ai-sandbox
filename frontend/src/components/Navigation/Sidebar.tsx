@@ -11,7 +11,7 @@ const navItems = [
   { href: "/staff", icon: Users, label: "Staff" },
 ]
 
-export function NavigationSidebar() {
+function NavigationSidebar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = React.useState(false)
 
@@ -99,4 +99,8 @@ export function NavigationSidebar() {
       </aside>
     </>
   )
+}
+
+export function AppSidebar() {
+  return <NavigationSidebar />
 }

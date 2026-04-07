@@ -1,5 +1,6 @@
 import { SidebarProvider, SidebarInset } from "@/components/ui/Sidebar"
-import { AppSidebar } from "@/components/navigation/Sidebar"
+import { AppSidebar } from "@/components/Navigation/Sidebar"
+import { QueryProvider } from "@/providers/QueryProvider"
 
 export default function StaffLayout({
   children,
@@ -7,11 +8,13 @@ export default function StaffLayout({
   children: React.ReactNode
 }) {
   return (
-    <SidebarProvider>
-      <AppSidebar />
-      <SidebarInset>
-        <main className="p-6">{children}</main>
-      </SidebarInset>
-    </SidebarProvider>
+    <QueryProvider>
+      <SidebarProvider>
+        <AppSidebar />
+        <SidebarInset>
+          <main className="p-6">{children}</main>
+        </SidebarInset>
+      </SidebarProvider>
+    </QueryProvider>
   )
 }
