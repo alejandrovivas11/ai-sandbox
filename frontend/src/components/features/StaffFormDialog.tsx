@@ -124,19 +124,12 @@ export function StaffFormDialog({ open, onOpenChange, staff }: StaffFormDialogPr
     if (!validate()) return
 
     const payload = {
-      firstName: form.firstName.trim(),
-      lastName: form.lastName.trim(),
+      name: `${form.firstName.trim()} ${form.lastName.trim()}`,
       email: form.email.trim(),
       role: form.role.trim(),
       department: form.department.trim(),
       phone: form.phone.trim(),
-      status: form.status,
-      payrollStatus: form.payrollStatus,
-      startDate: form.startDate || new Date().toISOString().split("T")[0],
-      teams: form.teams
-        .split(",")
-        .map((t) => t.trim())
-        .filter(Boolean),
+      status: form.status as "Active" | "Onboarding" | "Inactive",
     }
 
     if (isEditing && staff) {

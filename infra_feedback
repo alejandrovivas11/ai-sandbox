@@ -1,0 +1,271 @@
+Feedback: Docker Deployment & Build Issues
+Resumen Ejecutivo
+La configuración de Docker generada no levantaba. Se encontraron 13 errores que requirieron intervención manual. A continuación se detallan categorizados por severidad y tipo.
+
+CRÍTICOS (impiden que la solución levante)
+1. Migración SQLite incompatible
+Archivo: alembic/versions/002_expand_staff_profile.py Error: NotImplementedError: No support for ALTER of constraints in SQLite dialect
+
+# ❌ Generado
+op.create_unique_constraint('uq_staff_employee_id', 'staff', ['employee_id'])
+# ✅ Correcto
+with op.batch_alter_table("staff", schema=None) as batch_op:
+    batch_op.create_unique_constraint('uq_staff_employee_id', ['employee_id'])
+Regla: SQLite no soporta ALTER TABLE para constraints. SIEMPRE usar batch_alter_table() cuando el target DB es SQLite.
+
+2. URL de base de datos inconsistente
+Archivo: alembic.ini vs docker-compose.yml
+
+# alembic.ini decía:
+sqlalchemy.url = sqlite:///./staff.db
+# docker-compose.yml decía:
+DATABASE_URL=sqlite:///./data/staff.db
+Regla: La URL de la DB debe ser idéntica en todos los archivos. Además, alembic/env.py debe leer la variable de entorno DATABASE_URL para que la configuración sea centralizada:
+
+database_url = os.environ.get("DATABASE_URL")
+if database_url:
+    config.set_main_option("sqlalchemy.url", database_url)
+
+3. pip install --user con non-root user = paths rotos
+Archivo: Dockerfile
+
+# ❌ Generado: instala en /root/.local, pero runtime corre como appuser
+RUN pip install --no-cache-dir --user -r requirements.txt
+COPY --from=builder /root/.local /home/appuser/.local
+Si además el servicio db-migrate corría como root, no encontraba los módulos porque estaban en /home/appuser/.local.
+
+Regla: No usar --user en multi-stage builds. Instalar en la ruta estándar (/usr/local) y copiar desde ahí:
+
+# Builder
+RUN pip install --no-cache-dir -r requirements.txt
+# Runtime
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+4. Non-root user + SQLite en volumen Docker = permission denied
+Error: sqlite3.OperationalError: attempt to write a readonly database
+
+Un volumen Docker se crea con ownership root. Si el contenedor corre como appuser (UID 1000), no puede escribir en él.
+
+Regla: Para SQLite en Docker, no usar non-root user. La complejidad de permisos no justifica el beneficio. Si se necesita non-root, usar PostgreSQL en un servicio separado.
+
+5. Servicio db-migrate separado: innecesariamente complejo
+Generar un servicio separado para migraciones introduce problemas de PATH, PYTHONPATH, permisos de usuario, y sincronización.
+
+Regla: Integrar la migración en el CMD del backend:
+
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 3001"]
+
+6. Dependencia typing_extensions faltante
+Archivo: requirements.txt Error: ModuleNotFoundError: No module named 'typing_extensions'
+
+Pydantic v2 requiere typing_extensions pero no estaba listado.
+
+Regla: Después de generar requirements.txt, verificar que las dependencias transitivas críticas estén incluidas. Para Pydantic v2: typing_extensions>=4.0.0.
+
+7. NEXT_PUBLIC_* no disponible en runtime de Docker
+Archivo: frontend/Dockerfile
+Error: Frontend llamaba a localhost:3002/api/staff (a sí mismo) en vez de localhost:3001/api/staff
+
+En Next.js, las variables NEXT_PUBLIC_* se embeben en el JavaScript durante el BUILD, no en runtime. El Dockerfile original no pasaba la variable al momento de npm run build, entonces el frontend usaba el fallback "/api" (relativo, que resolvía contra sí mismo).
+
+# ❌ Generado: variable solo en runtime (no tiene efecto en Next.js)
+environment:
+  NEXT_PUBLIC_API_URL: http://localhost:3001
+
+# ✅ Correcto: pasar como ARG de build + configurar en Dockerfile
+# docker-compose.yml
+build:
+  context: ./frontend
+  args:
+    NEXT_PUBLIC_API_URL: http://localhost:3001
+
+# frontend/Dockerfile (ANTES de npm run build)
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+RUN npm run build
+
+Regla: Las variables NEXT_PUBLIC_* en Next.js son build-time, NO runtime. SIEMPRE pasarlas como ARG en el Dockerfile y como build.args en docker-compose.yml. Ponerlas solo en environment: del compose NO tiene efecto.
+
+ALTOS (impiden el build de Docker)
+8. package-lock.json inexistente
+Archivo: frontend/Dockerfile Error: "/package-lock.json": not found
+
+# ❌ Generado
+COPY package.json package-lock.json ./
+# ✅ Correcto
+COPY package.json ./
+Regla: No asumir que existe package-lock.json. Verificar el filesystem antes de referenciarlo en el Dockerfile.
+
+9. GID 1000 ya en uso en node:22-alpine
+Error: addgroup: gid '1000' in use
+
+# ❌ Generado
+RUN addgroup -g 1000 appgroup && adduser -D -u 1000 -G appgroup appuser
+Regla: Las imágenes base de Node ya usan GID/UID 1000 para el usuario node. No crear usuarios con ese ID. Usar el usuario node existente o un UID diferente.
+
+10. Falta .dockerignore en frontend
+El build transfería ~230MB de node_modules al contexto de Docker.
+
+Regla: SIEMPRE crear .dockerignore en el directorio del frontend:
+
+node_modules
+.next
+.git
+*.md
+.env*
+
+11. Case-sensitivity: Windows vs Linux (Docker)
+Error: Module not found: Can't resolve '@/components/Navigation/Breadcrumbs'
+
+La carpeta se llama navigation (minúscula) pero los imports usaban Navigation (mayúscula). Windows no distingue, Linux sí.
+
+Reglas:
+
+Auditar imports antes de generar Dockerfiles. Buscar discrepancias case-sensitive.
+Dentro del mismo módulo, usar imports relativos: import { NavItem } from "./NavItem" en vez de import { NavItem } from "@/components/Navigation/NavItem"
+Crear barrel files (index.ts) para cada carpeta de componentes.
+Convención: carpetas siempre en lowercase.
+
+12. Error TypeScript: number vs string
+Archivo: StaffOverviewSection.tsx Error: Type 'number' is not assignable to type 'string'
+
+// ❌ Generado
+value={staff.clients_count ?? 0}
+// ✅ Correcto
+value={String(staff.clients_count ?? 0)}
+Regla: Verificar los types de los props de los componentes UI antes de pasarles valores. StatisticCard.value espera string, no number.
+
+13. Incompatibilidad de schema entre Frontend y Backend (CRÍTICO)
+Error: "This page couldn't load" - la página renderiza pero crashea al acceder a propiedades inexistentes.
+
+El frontend fue diseñado con un schema distinto al del backend:
+
+| Frontend (types/staff.ts) | Backend (API response) |
+|---------------------------|------------------------|
+| firstName, lastName       | name (un solo campo)   |
+| id: string                | id: number             |
+| teams: string[]           | no existe              |
+| payrollStatus             | no existe              |
+| startDate                 | hireDate               |
+
+Esto causaba que:
+- row.original.firstName → undefined → crash al hacer firstName[0]
+- row.original.teams.map() → crash (teams es undefined)
+- Toda la tabla de Staff inutilizable
+
+Regla: SIEMPRE alinear los tipos del frontend con el schema real del backend ANTES de generar componentes.
+Checklist:
+- Leer el schema de Pydantic (schemas/staff.py) o llamar a GET /docs para ver el response schema real
+- Los tipos TypeScript del frontend deben generarse A PARTIR del schema del backend, no inventarse
+- Si el frontend necesita transformar datos (ej: split name → firstName/lastName), hacerlo en una capa de mapeo explícita (staffApi.ts), NO asumir que el backend devuelve el formato deseado
+- Verificar que los campos que usa cada componente UI existan en el tipo real
+
+Parche aplicado: Se creó mapApiToStaffMember() en types/staff.ts que transforma la respuesta del backend al formato que espera el frontend.
+
+14. NEXT_PUBLIC_API_URL sin incluir el prefix /api
+Error: Frontend llamaba a http://localhost:3001/staff (404) pero la ruta real es http://localhost:3001/api/staff
+
+El router del backend tiene prefix="/api/staff", pero NEXT_PUBLIC_API_URL se configuró como http://localhost:3001 sin el /api.
+El código del frontend concatena: ${API_BASE_URL}/staff → http://localhost:3001/staff (404)
+
+# ❌ Generado
+NEXT_PUBLIC_API_URL=http://localhost:3001
+# ✅ Correcto
+NEXT_PUBLIC_API_URL=http://localhost:3001/api
+
+Regla: Verificar el prefix del router de FastAPI y asegurarse de que NEXT_PUBLIC_API_URL incluya el path base completo. Leer staffApi.ts para ver cómo se construye la URL final.
+
+15. Puerto hardcodeado sin considerar conflictos
+Archivo: docker-compose.yml Error: bind: Only one usage of each socket address
+
+# ❌ Generado
+ports:
+  - "3000:3000"
+# ✅ Correcto
+ports:
+  - "${FRONTEND_PORT:-3002}:3000"
+Regla: Puertos deben ser configurables via variables de entorno.
+
+16. Sidebar duplicado en páginas hijas
+Archivo: frontend/src/app/staff/[staffId]/profile/page.tsx
+Error visual: Doble sidebar (doble menú lateral)
+
+El layout padre (staff/layout.tsx) ya monta SidebarProvider + AppSidebar. La página hija (profile/page.tsx) las montaba de nuevo, produciendo dos sidebars anidados.
+
+# ❌ Generado en page.tsx
+return (
+  <SidebarProvider>
+    <AppSidebar />
+    <SidebarInset>
+      <main>{/* ... */}</main>
+    </SidebarInset>
+  </SidebarProvider>
+)
+
+# ✅ Correcto (el layout ya provee el sidebar)
+return (
+  <div className="max-w-4xl">
+    {/* contenido directo sin sidebar */}
+  </div>
+)
+
+Regla: En Next.js App Router, los layouts envuelven automáticamente a las páginas hijas. NUNCA repetir componentes de layout (SidebarProvider, AppSidebar, Header, etc.) en una página si ya están en un layout padre. Verificar staff/layout.tsx antes de generar staff/*/page.tsx.
+
+17. Página de perfil sin alineación al diseño
+Archivo: frontend/src/app/staff/[staffId]/profile/page.tsx + secciones
+Error visual: Layout desalineado, sin header card con avatar, sin breadcrumbs, sin botones de acción, grids en 2 columnas en vez de 4 para overview, secciones de info sin iconos.
+
+El agente generó una página de perfil con estructura plana (H1 + secciones en serie) que no corresponde al diseño proporcionado:
+
+| Diseño esperado                          | Lo que se generó                    |
+|------------------------------------------|-------------------------------------|
+| Breadcrumb: Staff > Sarah Johnson        | Sin breadcrumb                      |
+| Header card con avatar, badge, botones   | Solo H1 con nombre                  |
+| 4 StatisticCards en fila (Earnings,      | 2x2 grid sin iconos ni trends       |
+| Clients, Hours, Cancelled)               |                                     |
+| Personal Info en grid 2-col con iconos   | Lista vertical con DescriptionItem  |
+| Employment en grid 2-col con iconos      | Lista vertical con DescriptionItem  |
+| Compensation con badges para benefits    | Lista vertical con DescriptionItem  |
+
+Regla: Cuando existe un diseño de referencia (Figma, screenshot, wireframe), el agente DEBE:
+1. Analizar el layout general antes de empezar (header, grid columns, spacing)
+2. Identificar componentes UI existentes en el proyecto que matchean el diseño (Avatar, Badge, Button, StatisticCard)
+3. Respetar la estructura visual: breadcrumbs, header cards con avatar+acciones, grids de estadísticas
+4. Usar iconos junto a labels en secciones de información (Mail, Phone, MapPin, etc.)
+5. Benefits como badges, no como texto plano
+6. NO usar DescriptionItem vertical para todo; preferir grid de 2 columnas con iconos cuando el diseño lo muestra así
+
+Checklist para el Agente (antes de entregar código)
+
+Infraestructura Docker:
+ [ ] alembic.ini URL coincide con DATABASE_URL del compose
+ [ ] alembic/env.py lee DATABASE_URL del entorno
+ [ ] Migraciones usan batch_alter_table() si target es SQLite
+ [ ] requirements.txt incluye typing_extensions
+ [ ] Dockerfile no usa --user flag con multi-stage + SQLite
+ [ ] No se asume package-lock.json sin verificar
+ [ ] .dockerignore existe en cada contexto de build
+ [ ] Puertos configurables via env vars
+ [ ] No crear servicios separados para migraciones con SQLite
+ [ ] NEXT_PUBLIC_* pasadas como ARG de build, NO solo como environment runtime
+ [ ] NEXT_PUBLIC_API_URL incluye el prefix del router (ej: /api)
+ [ ] Probar docker-compose config antes de entregar
+
+Frontend / Backend Integration:
+ [ ] Tipos TypeScript generados A PARTIR del schema real del backend (Pydantic)
+ [ ] Cada campo que usa un componente UI existe en el tipo real de la API
+ [ ] Si se necesita transformar datos, hacerlo en capa de mapeo (staffApi.ts)
+ [ ] Imports son case-consistent con el filesystem real (lowercase)
+ [ ] Barrel files (index.ts) existen para imports @/
+ [ ] TypeScript types verificados (no pasar number donde espera string)
+
+UI / Layout Consistency:
+ [ ] Páginas hijas NO repiten componentes de layout (Sidebar, Header) que ya provee un layout padre
+ [ ] Si existe diseño de referencia, comparar estructura visual antes de entregar
+ [ ] Usar componentes existentes del proyecto (Avatar, Badge, StatisticCard) en vez de markup genérico
+ [ ] Overview stats en grid de 4 columnas con iconos
+ [ ] Secciones de info en grid 2 columnas con iconos (Mail, Phone, MapPin, etc.)
+ [ ] Breadcrumbs presentes en páginas de detalle
+ [ ] Header card con avatar, badge de status, y botones de acción (Message, Edit)
+ [ ] Benefits como badges (Badge component), no como texto plano

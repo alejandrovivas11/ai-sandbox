@@ -1,4 +1,5 @@
-import type { StaffMember, CreateStaffRequest, UpdateStaffRequest } from "@/types/staff"
+import type { StaffMember, CreateStaffRequest, ApiStaffRecord } from "@/types/staff"
+import { mapApiToStaffMember } from "@/types/staff"
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "/api"
 
@@ -24,7 +25,8 @@ export async function getAllStaff(): Promise<StaffMember[]> {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
-  return handleResponse<StaffMember[]>(response)
+  const raw = await handleResponse<ApiStaffRecord[]>(response)
+  return raw.map(mapApiToStaffMember)
 }
 
 export async function getStaffById(id: string): Promise<StaffMember> {
@@ -32,7 +34,8 @@ export async function getStaffById(id: string): Promise<StaffMember> {
     method: "GET",
     headers: { "Content-Type": "application/json" },
   })
-  return handleResponse<StaffMember>(response)
+  const raw = await handleResponse<ApiStaffRecord>(response)
+  return mapApiToStaffMember(raw)
 }
 
 export async function createStaff(data: CreateStaffRequest): Promise<StaffMember> {
@@ -41,7 +44,8 @@ export async function createStaff(data: CreateStaffRequest): Promise<StaffMember
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
-  return handleResponse<StaffMember>(response)
+  const raw = await handleResponse<ApiStaffRecord>(response)
+  return mapApiToStaffMember(raw)
 }
 
 export async function updateStaff(id: string, data: Partial<CreateStaffRequest>): Promise<StaffMember> {
@@ -50,7 +54,8 @@ export async function updateStaff(id: string, data: Partial<CreateStaffRequest>)
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   })
-  return handleResponse<StaffMember>(response)
+  const raw = await handleResponse<ApiStaffRecord>(response)
+  return mapApiToStaffMember(raw)
 }
 
 export async function deleteStaff(id: string): Promise<void> {

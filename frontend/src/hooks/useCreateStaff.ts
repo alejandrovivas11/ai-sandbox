@@ -30,13 +30,7 @@ export function useCreateStaff(
       setError(null)
       setIsSuccess(false)
 
-      const optimisticId = `temp-${Date.now()}`
-      const optimisticMember: StaffMember = {
-        ...data,
-        id: optimisticId,
-      }
       const previousData = [...staffData]
-      setStaffData([...staffData, optimisticMember])
 
       createStaff(data)
         .then((created) => {
