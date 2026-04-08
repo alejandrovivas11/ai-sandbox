@@ -2,13 +2,14 @@
 
 import * as React from "react"
 import { usePathname } from "next/navigation"
-import { Home, Users, Menu, X } from "lucide-react"
+import { Home, Users, DollarSign, Menu, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { NavItem } from "./NavItem"
 
 const navItems = [
   { href: "/", icon: Home, label: "Dashboard" },
   { href: "/staff", icon: Users, label: "Staff" },
+  { href: "/payroll", icon: DollarSign, label: "Payroll" },
 ]
 
 function NavigationSidebar() {
