@@ -1,27 +1,39 @@
 /**
- * Payroll data type definitions
+ * Payroll-related TypeScript type definitions
  */
 
-export interface PayrollPeriod {
-  id: string
-  label: string
-  startDate: string
-  endDate: string
-}
-
+/**
+ * Interface representing a single payroll record
+ */
 export interface PayrollRecord {
-  id: string
-  staffMember: string
-  regularHours: number
-  ptoHours: number
-  adjustments: number
-  rate: number
-  totalPay: number
+  id: string;
+  employeeName: string;
+  employeeId: string;
+  position: string;
+  baseSalary: number;
+  overtime: number;
+  bonuses: number;
+  deductions: number;
+  grossPay: number;
+  netPay: number;
+  status: string;
+  payPeriod: string;
 }
 
+/**
+ * Interface representing a payroll period option
+ */
+export interface PayrollPeriod {
+  value: string;
+  label: string;
+}
+
+/**
+ * Interface representing aggregated payroll statistics
+ */
 export interface PayrollStatistics {
-  totalHours: number
-  totalAdjustments: number
-  averagePay: number
-  trend: number
+  totalGrossPay: number;
+  totalNetPay: number;
+  totalEmployees: number;
+  averageSalary: number;
 }
