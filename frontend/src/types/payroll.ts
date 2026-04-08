@@ -1,11 +1,4 @@
-export type PayrollPeriod = {
-  id: string
-  label: string
-  startDate: string
-  endDate: string
-}
-
-export type PayrollData = {
+export interface PayrollData {
   id: string
   staffMemberId: string
   staffName: string
@@ -16,7 +9,14 @@ export type PayrollData = {
   totalPay: number
 }
 
-export type PayrollStatistics = {
+export interface PayrollPeriod {
+  id: string
+  label: string
+  startDate: string
+  endDate: string
+}
+
+export interface PayrollStatistics {
   totalHours: number
   totalAdjustments: number
   averagePay: number
