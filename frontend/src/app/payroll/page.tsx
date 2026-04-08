@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { TrendingUp } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
@@ -14,6 +15,7 @@ import {
 import { H2, P, Small } from "@/components/ui/Typography"
 import { PayrollTable } from "@/components/features/PayrollTable"
 import { payrollData, payrollPeriods, getPayrollStatistics } from "@/data/mockPayroll"
+import { formatCurrency } from "@/lib/utils"
 
 export default function PayrollPage() {
   const [selectedPeriod, setSelectedPeriod] = useState(payrollPeriods[0].id)
@@ -30,12 +32,10 @@ export default function PayrollPage() {
         </P>
       </div>
 
-      {/* Status Badge */}
       <div className="mb-6">
         <Badge variant="secondary">Pending Approval</Badge>
       </div>
 
-      {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <Card>
           <CardHeader className="pb-3">
@@ -43,9 +43,12 @@ export default function PayrollPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{statistics.totalHours}</div>
-            <Small className="text-muted-foreground mt-1">
-              Regular + PTO hours
-            </Small>
+            <div className="flex items-center gap-2 mt-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              <Small className="text-muted-foreground">
+                +5% from last period
+              </Small>
+            </div>
           </CardContent>
         </Card>
 
@@ -57,11 +60,14 @@ export default function PayrollPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              ${statistics.totalAdjustments}
+              {formatCurrency(statistics.totalAdjustments)}
             </div>
-            <Small className="text-muted-foreground mt-1">
-              Sum of all adjustments
-            </Small>
+            <div className="flex items-center gap-2 mt-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              <Small className="text-muted-foreground">
+                +2% from last period
+              </Small>
+            </div>
           </CardContent>
         </Card>
 
@@ -70,15 +76,17 @@ export default function PayrollPage() {
             <CardTitle className="text-base font-semibold">Average Pay</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">${statistics.averagePay}</div>
-            <Small className="text-muted-foreground mt-1">
-              Per staff member
-            </Small>
+            <div className="text-3xl font-bold">{formatCurrency(statistics.averagePay)}</div>
+            <div className="flex items-center gap-2 mt-2">
+              <TrendingUp className="w-4 h-4 text-green-600" />
+              <Small className="text-muted-foreground">
+                +3% from last period
+              </Small>
+            </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Period Selector */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle className="text-base font-semibold">Pay Period</CardTitle>
@@ -104,7 +112,6 @@ export default function PayrollPage() {
         </CardContent>
       </Card>
 
-      {/* Payroll Table */}
       <Card className="mb-8">
         <CardHeader>
           <CardTitle className="text-base font-semibold">Staff Payroll</CardTitle>
@@ -114,7 +121,6 @@ export default function PayrollPage() {
         </CardContent>
       </Card>
 
-      {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4">
         <Button>Approve & Lock Payroll</Button>
         <Button variant="secondary">Export CSV</Button>

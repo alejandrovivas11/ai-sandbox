@@ -16,6 +16,7 @@ import {
   TableRow,
 } from "@/components/ui/Table"
 import { PayrollData } from "@/types/payroll"
+import { formatCurrency, formatHours } from "@/lib/utils"
 
 interface PayrollTableProps {
   data: PayrollData[]
@@ -32,30 +33,30 @@ export function PayrollTable({ data }: PayrollTableProps) {
       {
         accessorKey: "regularHours",
         header: "Regular Hours",
-        cell: ({ row }) => <div>{row.getValue("regularHours")}</div>,
+        cell: ({ row }) => <div>{formatHours(row.getValue("regularHours") as number)}</div>,
       },
       {
         accessorKey: "ptoHours",
         header: "PTO Hours",
-        cell: ({ row }) => <div>{row.getValue("ptoHours")}</div>,
+        cell: ({ row }) => <div>{formatHours(row.getValue("ptoHours") as number)}</div>,
       },
       {
         accessorKey: "adjustments",
         header: "Adjustments",
         cell: ({ row }) => (
-          <div className="font-medium">${row.getValue("adjustments")}</div>
+          <div className="font-medium">{formatCurrency(row.getValue("adjustments") as number)}</div>
         ),
       },
       {
         accessorKey: "rate",
         header: "Rate",
-        cell: ({ row }) => <div>${row.getValue("rate")}/hr</div>,
+        cell: ({ row }) => <div>{formatCurrency(row.getValue("rate") as number)}/hr</div>,
       },
       {
         accessorKey: "totalPay",
         header: "Total Pay",
         cell: ({ row }) => (
-          <div className="font-semibold">${row.getValue("totalPay")}</div>
+          <div className="font-semibold">{formatCurrency(row.getValue("totalPay") as number)}</div>
         ),
       },
     ],
