@@ -1,4 +1,4 @@
-export type PatientStatus = 'Active' | 'On Hold' | 'Discharged' | 'Pending' | 'New'
+export type PatientStatus = 'Active' | 'On Hold' | 'Discharged' | 'Pending' | 'New' | 'Inactive'
 
 export interface Patient {
   id: string

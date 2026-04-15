@@ -1,15 +1,7 @@
-'use client'
+"use client"
 
-import { Search, Plus } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from '@/components/ui/Select'
+import Link from "next/link"
+import { Plus, ArrowUpDown } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -17,37 +9,56 @@ import {
   BreadcrumbLink,
   BreadcrumbPage,
   BreadcrumbSeparator,
-} from '@/components/ui/Breadcrumb'
-import { PatientsTable } from '@/components/features/patients/PatientsTable'
-import { usePatients } from '@/hooks/usePatients'
-import Link from 'next/link'
+} from "@/components/ui/Breadcrumb"
+import { Button } from "@/components/ui/Button"
+import { Card } from "@/components/ui/Card"
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+} from "@/components/ui/Table"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationPrevious,
+  PaginationNext,
+  PaginationEllipsis,
+} from "@/components/ui/Pagination"
+import { usePatients } from "@/hooks/usePatients"
+import { PatientFilters } from "@/components/features/patients/PatientFilters"
+import { PatientTableRow } from "@/components/features/patients/PatientTableRow"
+import type { Patient } from "@/types/patient"
+
+const SORTABLE_COLUMNS: { key: keyof Patient; label: string }[] = [
+  { key: "name", label: "Patient Name" },
+  { key: "dateOfBirth", label: "Date of Birth" },
+  { key: "status", label: "Status" },
+  { key: "insurance", label: "Insurance" },
+]
+
+const NON_SORTABLE_COLUMNS = ["Phone", "Email", "Actions"]
 
 export default function PatientsPage() {
   const {
     patients,
-    filters,
+    totalCount,
     setSearch,
     setStatus,
-    setTherapist,
     setInsurance,
-    selectedIds,
-    toggleSelection,
-    toggleAll,
-    isLoading,
-    totalCount,
-    currentPage,
-    setCurrentPage,
+    sortField,
+    sortDirection,
+    toggleSort,
   } = usePatients()
 
-  const totalPages = Math.max(1, Math.ceil(totalCount / 5))
-  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * 5 + 1
-  const endItem = Math.min(currentPage * 5, totalCount)
-
   return (
-    <div className="flex flex-col">
-      {/* Header */}
-      <header className="flex flex-row items-center justify-between px-6 py-4">
-        <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-6 p-6">
+      {/* Section 0: Header */}
+      <div className="flex flex-row items-center justify-between">
+        <div className="flex flex-col gap-1">
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
@@ -59,108 +70,95 @@ export default function PatientsPage() {
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <h1 className="text-2xl font-bold text-neutral-900">Patients</h1>
+          <h1 className="text-2xl font-semibold text-neutral-900">Patients</h1>
         </div>
         <Link href="/patients/intake">
-          <Button variant="default">
-            <Plus className="w-4 h-4 mr-1.5" />
+          <Button>
+            <Plus className="w-4 h-4" />
             Add Patient
           </Button>
         </Link>
-      </header>
-
-      {/* Filters */}
-      <div className="flex flex-row items-center gap-4 px-6 py-4">
-        <div className="w-[300px]">
-          <Input
-            placeholder="Search by name, DOB, MRN, or phone..."
-            leadingIcon={<Search className="w-4 h-4 text-gray-400" />}
-            value={filters.search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <Select value={filters.status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[160px] bg-white">
-            <SelectValue placeholder="All Statuses" />
-          </SelectTrigger>
-          <SelectContent className="bg-white">
-            <SelectItem value="all">All Statuses</SelectItem>
-            <SelectItem value="Active">Active</SelectItem>
-            <SelectItem value="On Hold">On Hold</SelectItem>
-            <SelectItem value="Discharged">Discharged</SelectItem>
-            <SelectItem value="Pending">Pending</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filters.therapist || 'all'} onValueChange={(v) => setTherapist(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[180px] bg-white">
-            <SelectValue placeholder="All Therapists" />
-          </SelectTrigger>
-          <SelectContent className="bg-white">
-            <SelectItem value="all">All Therapists</SelectItem>
-            <SelectItem value="Dr. Michael Chen">Dr. Michael Chen</SelectItem>
-            <SelectItem value="Dr. Sarah Johnson">Dr. Sarah Johnson</SelectItem>
-            <SelectItem value="Dr. Lisa Rodriguez">Dr. Lisa Rodriguez</SelectItem>
-            <SelectItem value="Dr. David Kim">Dr. David Kim</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={filters.insurance || 'all'} onValueChange={(v) => setInsurance(v === 'all' ? '' : v)}>
-          <SelectTrigger className="w-[200px] bg-white">
-            <SelectValue placeholder="All Insurance" />
-          </SelectTrigger>
-          <SelectContent className="bg-white">
-            <SelectItem value="all">All Insurance</SelectItem>
-            <SelectItem value="BlueCross BlueShield">BlueCross BlueShield</SelectItem>
-            <SelectItem value="Aetna">Aetna</SelectItem>
-            <SelectItem value="Cigna">Cigna</SelectItem>
-            <SelectItem value="United Healthcare">United Healthcare</SelectItem>
-            <SelectItem value="Medicare">Medicare</SelectItem>
-          </SelectContent>
-        </Select>
       </div>
 
-      {/* Patient table */}
-      <div className="mx-6 mb-6">
-        <PatientsTable
-          patients={patients}
-          selectedIds={selectedIds}
-          onToggleSelection={toggleSelection}
-          onToggleAll={toggleAll}
-        />
-      </div>
+      {/* Section 1: Search and Filters */}
+      <PatientFilters
+        onSearchChange={setSearch}
+        onStatusChange={setStatus}
+        onInsuranceChange={setInsurance}
+      />
 
-      {/* Pagination */}
-      <div className="flex flex-row items-center justify-between px-6 py-4">
-        <span className="text-sm text-neutral-600">
-          Showing {startItem}-{endItem} of {totalCount} patients
+      {/* Section 2: Card with Table */}
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow className="h-10 border-b border-gray-200">
+              {SORTABLE_COLUMNS.map((col) => (
+                <TableHead
+                  key={col.key}
+                  className="text-xs font-medium text-gray-500 cursor-pointer select-none"
+                  onClick={() => toggleSort(col.key)}
+                >
+                  <span className="flex items-center gap-1">
+                    {col.label}
+                    <ArrowUpDown className="w-3 h-3 text-gray-400" />
+                  </span>
+                </TableHead>
+              ))}
+              {NON_SORTABLE_COLUMNS.map((label) => (
+                <TableHead
+                  key={label}
+                  className={`text-xs font-medium text-gray-500${
+                    label === "Actions" ? " text-right" : ""
+                  }`}
+                >
+                  {label}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {patients.map((patient) => (
+              <PatientTableRow key={patient.id} patient={patient} />
+            ))}
+          </TableBody>
+        </Table>
+      </Card>
+
+      {/* Section 3: Pagination */}
+      <div className="flex flex-row items-center justify-between">
+        <span className="text-sm text-gray-500">
+          Showing 1-{patients.length} of {totalCount} patients
         </span>
-        <div className="flex flex-row gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage <= 1}
-            onClick={() => setCurrentPage(currentPage - 1)}
-          >
-            Previous
-          </Button>
-          {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => i + 1).map((page) => (
-            <Button
-              key={page}
-              variant={page === currentPage ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setCurrentPage(page)}
-            >
-              {page}
-            </Button>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage >= totalPages}
-            onClick={() => setCurrentPage(currentPage + 1)}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination>
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                className="pointer-events-none opacity-50"
+              />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationLink href="#" isActive>
+                1
+              </PaginationLink>
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationLink href="#">2</PaginationLink>
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationLink href="#">3</PaginationLink>
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationEllipsis />
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationLink href="#">50</PaginationLink>
+            </PaginationItem>
+            <PaginationItem>
+              <PaginationNext href="#" />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       </div>
     </div>
   )
