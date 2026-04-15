@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-import { Plus, Search } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import {
@@ -21,6 +20,7 @@ import {
 } from '@/components/ui/Breadcrumb'
 import { PatientsTable } from '@/components/features/patients/PatientsTable'
 import { usePatients } from '@/hooks/usePatients'
+import Link from 'next/link'
 
 export default function PatientsPage() {
   const {
@@ -45,8 +45,8 @@ export default function PatientsPage() {
 
   return (
     <div className="flex flex-col">
-      {/* render_sequence[0]: header */}
-      <header className="flex flex-row items-center justify-between" style={{ padding: '16px 24px' }}>
+      {/* Header */}
+      <header className="flex flex-row items-center justify-between px-6 py-4">
         <div className="flex flex-col gap-2">
           <Breadcrumb>
             <BreadcrumbList>
@@ -69,8 +69,8 @@ export default function PatientsPage() {
         </Link>
       </header>
 
-      {/* render_sequence[1]: filter controls */}
-      <div className="flex flex-row items-center gap-4" style={{ padding: '16px 24px' }}>
+      {/* Filters */}
+      <div className="flex flex-row items-center gap-4 px-6 py-4">
         <div className="w-[300px]">
           <Input
             placeholder="Search by name, DOB, MRN, or phone..."
@@ -79,36 +79,35 @@ export default function PatientsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select value={filters.status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Status" />
+        <Select value={filters.status || 'all'} onValueChange={(v) => setStatus(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-[160px] bg-white">
+            <SelectValue placeholder="All Statuses" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-white">
             <SelectItem value="all">All Statuses</SelectItem>
             <SelectItem value="Active">Active</SelectItem>
             <SelectItem value="On Hold">On Hold</SelectItem>
             <SelectItem value="Discharged">Discharged</SelectItem>
             <SelectItem value="Pending">Pending</SelectItem>
-            <SelectItem value="New">New</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filters.therapist} onValueChange={setTherapist}>
-          <SelectTrigger className="w-[180px]">
-            <SelectValue placeholder="Therapist" />
+        <Select value={filters.therapist || 'all'} onValueChange={(v) => setTherapist(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-[180px] bg-white">
+            <SelectValue placeholder="All Therapists" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-white">
             <SelectItem value="all">All Therapists</SelectItem>
-            <SelectItem value="Dr. Sarah Johnson">Dr. Sarah Johnson</SelectItem>
             <SelectItem value="Dr. Michael Chen">Dr. Michael Chen</SelectItem>
+            <SelectItem value="Dr. Sarah Johnson">Dr. Sarah Johnson</SelectItem>
             <SelectItem value="Dr. Lisa Rodriguez">Dr. Lisa Rodriguez</SelectItem>
             <SelectItem value="Dr. David Kim">Dr. David Kim</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filters.insurance} onValueChange={setInsurance}>
-          <SelectTrigger className="w-[200px]">
-            <SelectValue placeholder="Insurance" />
+        <Select value={filters.insurance || 'all'} onValueChange={(v) => setInsurance(v === 'all' ? '' : v)}>
+          <SelectTrigger className="w-[200px] bg-white">
+            <SelectValue placeholder="All Insurance" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="bg-white">
             <SelectItem value="all">All Insurance</SelectItem>
             <SelectItem value="BlueCross BlueShield">BlueCross BlueShield</SelectItem>
             <SelectItem value="Aetna">Aetna</SelectItem>
@@ -119,7 +118,7 @@ export default function PatientsPage() {
         </Select>
       </div>
 
-      {/* render_sequence[2]: patient table (component) */}
+      {/* Patient table */}
       <div className="mx-6 mb-6">
         <PatientsTable
           patients={patients}
@@ -129,8 +128,8 @@ export default function PatientsPage() {
         />
       </div>
 
-      {/* render_sequence[3]: pagination */}
-      <div className="flex flex-row items-center justify-between" style={{ padding: '16px 24px' }}>
+      {/* Pagination */}
+      <div className="flex flex-row items-center justify-between px-6 py-4">
         <span className="text-sm text-neutral-600">
           Showing {startItem}-{endItem} of {totalCount} patients
         </span>
