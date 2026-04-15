@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Patient, PatientStatus } from '@/types/patient'
+import { Patient } from '@/types/patient'
 import { getPatients } from '@/lib/api/patients'
 
 interface UsePatientFilters {
   search: string
   status: string
-  provider: string
+  therapist: string
   insurance: string
 }
 
@@ -16,7 +16,7 @@ interface UsePatientsReturn {
   filters: UsePatientFilters
   setSearch: (value: string) => void
   setStatus: (value: string) => void
-  setProvider: (value: string) => void
+  setTherapist: (value: string) => void
   setInsurance: (value: string) => void
   clearFilters: () => void
   selectedIds: Set<string>
@@ -24,20 +24,26 @@ interface UsePatientsReturn {
   toggleAll: () => void
   clearSelection: () => void
   isLoading: boolean
+  totalCount: number
+  currentPage: number
+  setCurrentPage: (page: number) => void
 }
 
 const INITIAL_FILTERS: UsePatientFilters = {
   search: '',
   status: '',
-  provider: '',
+  therapist: '',
   insurance: '',
 }
+
+const PAGE_SIZE = 5
 
 export function usePatients(): UsePatientsReturn {
   const [allPatients, setAllPatients] = useState<Patient[]>([])
   const [filters, setFilters] = useState<UsePatientFilters>(INITIAL_FILTERS)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
+  const [currentPage, setCurrentPage] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -53,7 +59,7 @@ export function usePatients(): UsePatientsReturn {
     }
   }, [])
 
-  const patients = useMemo(() => {
+  const filteredPatients = useMemo(() => {
     let result = allPatients
 
     if (filters.search) {
@@ -62,7 +68,7 @@ export function usePatients(): UsePatientsReturn {
         (p) =>
           p.name.toLowerCase().includes(lower) ||
           p.mrn.toLowerCase().includes(lower) ||
-          p.email.toLowerCase().includes(lower) ||
+          p.phone.includes(lower) ||
           p.dateOfBirth.includes(lower)
       )
     }
@@ -71,28 +77,25 @@ export function usePatients(): UsePatientsReturn {
       result = result.filter((p) => p.status === filters.status)
     }
 
-    if (filters.provider) {
-      result = result.filter(
-        (p) => p.primaryProvider.toLowerCase().replace(/\s+/g, '_').replace('dr._', 'dr_') === filters.provider
-      )
+    if (filters.therapist) {
+      result = result.filter((p) => p.assignedTherapist === filters.therapist)
     }
 
     if (filters.insurance) {
-      const insuranceMap: Record<string, string> = {
-        bcbs: 'Blue Cross Blue Shield',
-        aetna: 'Aetna',
-        medicare: 'Medicare',
-        medicaid: 'Medicaid',
-      }
-      result = result.filter((p) => p.insurance === insuranceMap[filters.insurance])
+      result = result.filter((p) => p.insurance === filters.insurance)
     }
 
     return result
   }, [allPatients, filters])
 
+  const patients = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE
+    return filteredPatients.slice(start, start + PAGE_SIZE)
+  }, [filteredPatients, currentPage])
+
   const setSearch = (value: string) => setFilters((f) => ({ ...f, search: value }))
   const setStatus = (value: string) => setFilters((f) => ({ ...f, status: value }))
-  const setProvider = (value: string) => setFilters((f) => ({ ...f, provider: value }))
+  const setTherapist = (value: string) => setFilters((f) => ({ ...f, therapist: value }))
   const setInsurance = (value: string) => setFilters((f) => ({ ...f, insurance: value }))
   const clearFilters = () => setFilters(INITIAL_FILTERS)
 
@@ -124,7 +127,7 @@ export function usePatients(): UsePatientsReturn {
     filters,
     setSearch,
     setStatus,
-    setProvider,
+    setTherapist,
     setInsurance,
     clearFilters,
     selectedIds,
@@ -132,5 +135,8 @@ export function usePatients(): UsePatientsReturn {
     toggleAll,
     clearSelection,
     isLoading,
+    totalCount: filteredPatients.length,
+    currentPage,
+    setCurrentPage,
   }
 }

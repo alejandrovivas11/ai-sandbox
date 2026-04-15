@@ -1,6 +1,7 @@
 'use client'
 
-import { Plus, Search, Users } from 'lucide-react'
+import Link from 'next/link'
+import { Plus, Search } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import {
@@ -15,6 +16,8 @@ import {
   BreadcrumbList,
   BreadcrumbItem,
   BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
 } from '@/components/ui/Breadcrumb'
 import { PatientsTable } from '@/components/features/patients/PatientsTable'
 import { usePatients } from '@/hooks/usePatients'
@@ -25,42 +28,50 @@ export default function PatientsPage() {
     filters,
     setSearch,
     setStatus,
-    setProvider,
+    setTherapist,
     setInsurance,
-    clearFilters,
     selectedIds,
     toggleSelection,
     toggleAll,
-    clearSelection,
     isLoading,
+    totalCount,
+    currentPage,
+    setCurrentPage,
   } = usePatients()
 
-  const hasSelection = selectedIds.size > 0
-  const hasPatients = patients.length > 0 || isLoading
+  const totalPages = Math.max(1, Math.ceil(totalCount / 5))
+  const startItem = totalCount === 0 ? 0 : (currentPage - 1) * 5 + 1
+  const endItem = Math.min(currentPage * 5, totalCount)
 
   return (
     <div className="flex flex-col">
       {/* render_sequence[0]: header */}
-      <header className="flex flex-row items-center justify-between px-6 py-4">
-        <div className="flex flex-col gap-1">
+      <header className="flex flex-row items-center justify-between" style={{ padding: '16px 24px' }}>
+        <div className="flex flex-col gap-2">
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink href="/patients">Patients</BreadcrumbLink>
+                <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Patients</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-          <h1 className="text-2xl font-bold text-gray-900">Patient List</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">Patients</h1>
         </div>
-        <Button variant="default">
-          <Plus className="w-4 h-4 mr-1.5" />
-          Add Patient
-        </Button>
+        <Link href="/patients/intake">
+          <Button variant="default">
+            <Plus className="w-4 h-4 mr-1.5" />
+            Add Patient
+          </Button>
+        </Link>
       </header>
 
-      {/* render_sequence[1]: filter bar */}
-      <div className="flex flex-row items-center gap-3 px-6 py-3 bg-gray-50 border-b">
-        <div className="flex-1">
+      {/* render_sequence[1]: filter controls */}
+      <div className="flex flex-row items-center gap-4" style={{ padding: '16px 24px' }}>
+        <div className="w-[300px]">
           <Input
             placeholder="Search by name, DOB, MRN, or phone..."
             leadingIcon={<Search className="w-4 h-4 text-gray-400" />}
@@ -69,81 +80,89 @@ export default function PatientsPage() {
           />
         </div>
         <Select value={filters.status} onValueChange={setStatus}>
-          <SelectTrigger className="w-[140px]">
+          <SelectTrigger className="w-[160px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="discharged">Discharged</SelectItem>
-            <SelectItem value="waitlist">Waitlist</SelectItem>
-            <SelectItem value="evaluation">Evaluation</SelectItem>
-            <SelectItem value="referral">Referral</SelectItem>
+            <SelectItem value="all">All Statuses</SelectItem>
+            <SelectItem value="Active">Active</SelectItem>
+            <SelectItem value="On Hold">On Hold</SelectItem>
+            <SelectItem value="Discharged">Discharged</SelectItem>
+            <SelectItem value="Pending">Pending</SelectItem>
+            <SelectItem value="New">New</SelectItem>
           </SelectContent>
         </Select>
-        <Select value={filters.provider} onValueChange={setProvider}>
-          <SelectTrigger className="w-[160px]">
-            <SelectValue placeholder="Provider" />
+        <Select value={filters.therapist} onValueChange={setTherapist}>
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Therapist" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="dr_smith">Dr. Smith</SelectItem>
-            <SelectItem value="dr_johnson">Dr. Johnson</SelectItem>
-            <SelectItem value="dr_williams">Dr. Williams</SelectItem>
+            <SelectItem value="all">All Therapists</SelectItem>
+            <SelectItem value="Dr. Sarah Johnson">Dr. Sarah Johnson</SelectItem>
+            <SelectItem value="Dr. Michael Chen">Dr. Michael Chen</SelectItem>
+            <SelectItem value="Dr. Lisa Rodriguez">Dr. Lisa Rodriguez</SelectItem>
+            <SelectItem value="Dr. David Kim">Dr. David Kim</SelectItem>
           </SelectContent>
         </Select>
         <Select value={filters.insurance} onValueChange={setInsurance}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-[200px]">
             <SelectValue placeholder="Insurance" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="bcbs">Blue Cross Blue Shield</SelectItem>
-            <SelectItem value="aetna">Aetna</SelectItem>
-            <SelectItem value="medicare">Medicare</SelectItem>
-            <SelectItem value="medicaid">Medicaid</SelectItem>
+            <SelectItem value="all">All Insurance</SelectItem>
+            <SelectItem value="BlueCross BlueShield">BlueCross BlueShield</SelectItem>
+            <SelectItem value="Aetna">Aetna</SelectItem>
+            <SelectItem value="Cigna">Cigna</SelectItem>
+            <SelectItem value="United Healthcare">United Healthcare</SelectItem>
+            <SelectItem value="Medicare">Medicare</SelectItem>
           </SelectContent>
         </Select>
-        <Button variant="secondary" onClick={clearFilters}>
-          Clear Filters
-        </Button>
       </div>
 
-      {/* render_sequence[2]: bulk actions bar (hidden by default) */}
-      {hasSelection && (
-        <div className="flex flex-row items-center gap-3 px-6 py-3 bg-blue-50 border border-blue-200">
-          <span className="text-sm text-gray-900">
-            {selectedIds.size} patients selected
-          </span>
-          <Button variant="secondary">Export Selected</Button>
-          <Button variant="secondary">Assign Provider</Button>
-          <Button variant="secondary">Change Status</Button>
-        </div>
-      )}
+      {/* render_sequence[2]: patient table (component) */}
+      <div className="mx-6 mb-6">
+        <PatientsTable
+          patients={patients}
+          selectedIds={selectedIds}
+          onToggleSelection={toggleSelection}
+          onToggleAll={toggleAll}
+        />
+      </div>
 
-      {/* render_sequence[3]: patient data table (component) */}
-      {hasPatients && (
-        <div className="px-6 py-6">
-          <PatientsTable
-            patients={patients}
-            selectedIds={selectedIds}
-            onToggleSelection={toggleSelection}
-            onToggleAll={toggleAll}
-          />
+      {/* render_sequence[3]: pagination */}
+      <div className="flex flex-row items-center justify-between" style={{ padding: '16px 24px' }}>
+        <span className="text-sm text-neutral-600">
+          Showing {startItem}-{endItem} of {totalCount} patients
+        </span>
+        <div className="flex flex-row gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage <= 1}
+            onClick={() => setCurrentPage(currentPage - 1)}
+          >
+            Previous
+          </Button>
+          {Array.from({ length: Math.min(totalPages, 3) }, (_, i) => i + 1).map((page) => (
+            <Button
+              key={page}
+              variant={page === currentPage ? 'default' : 'ghost'}
+              size="sm"
+              onClick={() => setCurrentPage(page)}
+            >
+              {page}
+            </Button>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage(currentPage + 1)}
+          >
+            Next
+          </Button>
         </div>
-      )}
-
-      {/* render_sequence[4]: empty state (hidden when patients present) */}
-      {!hasPatients && (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <Users className="w-12 h-12 text-gray-400" />
-          <h3 className="text-lg font-semibold text-gray-900">
-            No patients found
-          </h3>
-          <p className="text-sm text-gray-500">
-            Try adjusting your search or filters, or add your first patient to
-            get started.
-          </p>
-          <Button variant="default">Add Patient</Button>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

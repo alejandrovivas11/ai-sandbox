@@ -1,17 +1,15 @@
-export type PatientStatus = 'active' | 'discharged' | 'waitlist' | 'evaluation' | 'referral'
+export type PatientStatus = 'Active' | 'On Hold' | 'Discharged' | 'Pending' | 'New'
 
 export interface Patient {
   id: string
   name: string
-  email: string
-  mrn: string
-  dateOfBirth: string
-  age: number
   status: PatientStatus
-  primaryProvider: string
+  dateOfBirth: string
+  phone: string
+  email: string
   insurance: string
-  lastVisit: string
-  nextAppointment: string | null
+  assignedTherapist: string
+  mrn: string
 }
 
 export interface Provider {

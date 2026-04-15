@@ -4,59 +4,60 @@ const MOCK_PATIENTS: Patient[] = [
   {
     id: '1',
     name: 'Sarah Johnson',
-    email: 'sarah.johnson@email.com',
-    mrn: 'MRN001234',
+    status: 'Active',
     dateOfBirth: '03/15/1985',
-    age: 39,
-    status: 'active',
-    primaryProvider: 'Dr. Smith',
-    insurance: 'Blue Cross Blue Shield',
-    lastVisit: '11/28/2024',
-    nextAppointment: '12/15/2024',
+    phone: '(555) 123-4567',
+    email: 'sarah.johnson@email.com',
+    insurance: 'BlueCross BlueShield',
+    assignedTherapist: 'Dr. Michael Chen',
+    mrn: 'MRN-001234',
   },
   {
     id: '2',
-    name: 'Michael Chen',
-    email: 'm.chen@email.com',
-    mrn: 'MRN001235',
-    dateOfBirth: '07/22/2010',
-    age: 14,
-    status: 'evaluation',
-    primaryProvider: 'Dr. Johnson',
+    name: 'Michael Rodriguez',
+    status: 'On Hold',
+    dateOfBirth: '07/22/1978',
+    phone: '(555) 234-5678',
+    email: 'michael.rodriguez@email.com',
     insurance: 'Aetna',
-    lastVisit: '11/20/2024',
-    nextAppointment: '12/12/2024',
+    assignedTherapist: 'Dr. Sarah Johnson',
+    mrn: 'MRN-001235',
   },
   {
     id: '3',
-    name: 'Emma Rodriguez',
-    email: 'emma.r@email.com',
-    mrn: 'MRN001236',
-    dateOfBirth: '12/03/1978',
-    age: 45,
-    status: 'discharged',
-    primaryProvider: 'Dr. Williams',
+    name: 'Emily Davis',
+    status: 'Active',
+    dateOfBirth: '11/08/1992',
+    phone: '(555) 345-6789',
+    email: 'emily.davis@email.com',
+    insurance: 'Cigna',
+    assignedTherapist: 'Dr. Lisa Rodriguez',
+    mrn: 'MRN-001236',
+  },
+  {
+    id: '4',
+    name: 'David Kim',
+    status: 'Pending',
+    dateOfBirth: '05/12/1990',
+    phone: '(555) 456-7890',
+    email: 'david.kim@email.com',
+    insurance: 'United Healthcare',
+    assignedTherapist: 'Dr. David Kim',
+    mrn: 'MRN-001237',
+  },
+  {
+    id: '5',
+    name: 'Jessica Wilson',
+    status: 'Discharged',
+    dateOfBirth: '09/30/1987',
+    phone: '(555) 567-8901',
+    email: 'jessica.wilson@email.com',
     insurance: 'Medicare',
-    lastVisit: '11/05/2024',
-    nextAppointment: null,
+    assignedTherapist: 'Dr. Michael Chen',
+    mrn: 'MRN-001238',
   },
 ]
 
 export async function getPatients(): Promise<Patient[]> {
   return MOCK_PATIENTS
-}
-
-export async function searchPatients(query: string): Promise<Patient[]> {
-  const lower = query.toLowerCase()
-  return MOCK_PATIENTS.filter(
-    (p) =>
-      p.name.toLowerCase().includes(lower) ||
-      p.mrn.toLowerCase().includes(lower) ||
-      p.email.toLowerCase().includes(lower)
-  )
-}
-
-export async function getPatientsByStatus(status: string): Promise<Patient[]> {
-  if (!status) return MOCK_PATIENTS
-  return MOCK_PATIENTS.filter((p) => p.status === status)
 }
