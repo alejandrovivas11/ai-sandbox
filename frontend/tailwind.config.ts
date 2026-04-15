@@ -336,6 +336,7 @@ const config: Config = {
       border: '#e5e5e5',
 
       sidebar: {
+        DEFAULT: '#fafafa',
         primary: '#171717',
         'primary-foreground': '#fafafa',
         foreground: '#0a0a0a',
