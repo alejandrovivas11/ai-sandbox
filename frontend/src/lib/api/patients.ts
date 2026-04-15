@@ -10,6 +10,7 @@ const MOCK_PATIENTS: Patient[] = [
     insurance: "BlueCross BlueShield",
     therapist: "Dr. Smith",
     mrn: "MRN-001",
+    email: "sarah.johnson@email.com",
   },
   {
     id: "2",
@@ -20,6 +21,7 @@ const MOCK_PATIENTS: Patient[] = [
     insurance: "Aetna",
     therapist: "Dr. Jones",
     mrn: "MRN-002",
+    email: "michael.chen@email.com",
   },
   {
     id: "3",
@@ -30,6 +32,7 @@ const MOCK_PATIENTS: Patient[] = [
     insurance: "UnitedHealthcare",
     therapist: "Dr. Wilson",
     mrn: "MRN-003",
+    email: "emily.rodriguez@email.com",
   },
   {
     id: "4",
@@ -40,6 +43,7 @@ const MOCK_PATIENTS: Patient[] = [
     insurance: "Cigna",
     therapist: "Dr. Smith",
     mrn: "MRN-004",
+    email: "david.thompson@email.com",
   },
   {
     id: "5",
@@ -50,6 +54,7 @@ const MOCK_PATIENTS: Patient[] = [
     insurance: "Humana",
     therapist: "Dr. Jones",
     mrn: "MRN-005",
+    email: "lisa.williams@email.com",
   },
 ]
 
@@ -58,6 +63,10 @@ const MOCK_THERAPISTS: Therapist[] = [
   { id: "dr_jones", name: "Dr. Jones" },
   { id: "dr_wilson", name: "Dr. Wilson" },
 ]
+
+export function getPatientsMock(): Patient[] {
+  return MOCK_PATIENTS
+}
 
 export async function getPatients(): Promise<Patient[]> {
   return MOCK_PATIENTS

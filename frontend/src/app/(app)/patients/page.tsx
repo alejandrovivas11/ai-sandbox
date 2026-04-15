@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { Plus } from "lucide-react"
+import { Plus, Search } from "lucide-react"
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -20,9 +20,7 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/Select"
-import {
-  Card,
-} from "@/components/ui/Card"
+import { Card } from "@/components/ui/Card"
 import {
   Table,
   TableHeader,
@@ -32,43 +30,22 @@ import {
   TableCell,
 } from "@/components/ui/Table"
 import { Badge } from "@/components/ui/Badge"
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationPrevious,
-  PaginationNext,
-} from "@/components/ui/Pagination"
 import { H1, Muted } from "@/components/ui/Typography"
 import { usePatients } from "@/hooks/usePatients"
 import { getPatients } from "@/lib/api/patients"
 import type { Patient } from "@/types/patient"
 import { useState, useEffect } from "react"
-import { Search } from "lucide-react"
 
-const STATUS_BADGE_VARIANT: Record<Patient["status"], "default" | "secondary" | "destructive" | "outline"> = {
-  active: "default",
-  inactive: "secondary",
-  discharged: "destructive",
-}
-
-const STATUS_BADGE_CLASS: Record<Patient["status"], string> = {
+const STATUS_BADGE_CLASS: Record<string, string> = {
   active: "bg-green-100 text-green-700 hover:bg-green-100",
   inactive: "bg-yellow-100 text-yellow-700 hover:bg-yellow-100",
   discharged: "bg-red-100 text-red-700 hover:bg-red-100",
 }
 
-const STATUS_LABEL: Record<Patient["status"], string> = {
+const STATUS_LABEL: Record<string, string> = {
   active: "Active",
   inactive: "Inactive",
   discharged: "Discharged",
-}
-
-const THERAPIST_MAP: Record<string, string> = {
-  dr_smith: "Dr. Smith",
-  dr_jones: "Dr. Jones",
-  dr_wilson: "Dr. Wilson",
 }
 
 export default function PatientsPage() {
