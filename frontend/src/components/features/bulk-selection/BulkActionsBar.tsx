@@ -1,39 +1,31 @@
 'use client'
 
+import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
 
 interface BulkActionsBarProps {
   selectedCount: number
-  onBulkEdit: () => void
-  onBulkDelete: () => void
-  onBulkExport: () => void
 }
 
-export function BulkActionsBar({
-  selectedCount,
-  onBulkEdit,
-  onBulkDelete,
-  onBulkExport,
-}: BulkActionsBarProps) {
+export function BulkActionsBar({ selectedCount }: BulkActionsBarProps) {
   if (selectedCount === 0) return null
 
   return (
-    <div className="flex flex-row items-center gap-4 bg-muted/50 px-6 py-4">
-      <span className="text-sm text-neutral-900">
-        {selectedCount} items selected
-      </span>
-      <div className="flex-1" />
-      <div className="flex flex-row gap-2">
-        <Button variant="secondary" size="sm" onClick={onBulkEdit}>
-          Bulk Edit
-        </Button>
-        <Button variant="destructive" size="sm" onClick={onBulkDelete}>
-          Bulk Delete
-        </Button>
-        <Button variant="secondary" size="sm" onClick={onBulkExport}>
-          Bulk Export
-        </Button>
+    <Card className="fixed bottom-0 left-0 right-0 z-50 rounded-none border-x-0 border-b-0 bg-white shadow-lg">
+      <div className="flex flex-row items-center justify-between px-6 py-4">
+        <span className="text-sm text-neutral-900">
+          {selectedCount} items selected
+        </span>
+        <div className="flex flex-row gap-2">
+          <Button asChild>
+            <Link href="/actions/change-status">Change Status</Link>
+          </Button>
+          <Button variant="secondary" asChild>
+            <Link href="/actions/move-targets">Move Targets</Link>
+          </Button>
+        </div>
       </div>
-    </div>
+    </Card>
   )
 }

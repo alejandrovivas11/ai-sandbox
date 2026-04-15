@@ -1,71 +1,98 @@
-import { Target, Program } from '@/types/targets'
+import { Target } from '@/types/target'
+import { Target as MoveTarget, Program } from '@/types/targets'
 
-export async function getTargets(): Promise<Target[]> {
-  return [
-    {
-      id: '1',
-      name: 'Identify Colors',
-      program: 'Early Learning Program',
-      status: 'Active',
-      selected: false,
-    },
-    {
-      id: '2',
-      name: 'Name Body Parts',
-      program: 'Early Learning Program',
-      status: 'In Progress',
-      selected: false,
-    },
-    {
-      id: '3',
-      name: 'Count to 10',
-      program: 'Early Learning Program',
-      status: 'Active',
-      selected: false,
-    },
-    {
-      id: '4',
-      name: 'Follow Simple Instructions',
-      program: 'Early Learning Program',
-      status: 'On Hold',
-      selected: false,
-    },
-    {
-      id: '5',
-      name: 'Match Shapes',
-      program: 'Early Learning Program',
-      status: 'Active',
-      selected: false,
-    },
-  ]
+const MOCK_TARGETS: Target[] = [
+  {
+    id: '1',
+    name: 'Enterprise Security Assessment',
+    status: 'Active',
+    progress: 85,
+    category: 'Security',
+    author: 'John Smith',
+    timestamp: '2024-01-15 14:30',
+    selected: false,
+  },
+  {
+    id: '2',
+    name: 'Network Infrastructure Review',
+    status: 'In Progress',
+    progress: 42,
+    category: 'Infrastructure',
+    author: 'Sarah Johnson',
+    timestamp: '2024-01-14 09:15',
+    selected: false,
+  },
+  {
+    id: '3',
+    name: 'Application Vulnerability Scan',
+    status: 'Failed',
+    progress: 12,
+    category: 'Application',
+    author: 'Mike Chen',
+    timestamp: '2024-01-13 16:45',
+    selected: false,
+  },
+  {
+    id: '4',
+    name: 'Compliance Audit Preparation',
+    status: 'Scheduled',
+    progress: 0,
+    category: 'Compliance',
+    author: 'Lisa Brown',
+    timestamp: '2024-01-12 11:20',
+    selected: false,
+  },
+  {
+    id: '5',
+    name: 'Data Privacy Impact Assessment',
+    status: 'Completed',
+    progress: 100,
+    category: 'Privacy',
+    author: 'David Wilson',
+    timestamp: '2024-01-11 13:10',
+    selected: false,
+  },
+]
+
+export async function getTargets(): Promise<MoveTarget[]> {
+  return MOCK_TARGETS.map((t) => ({
+    ...t,
+    status: t.status as MoveTarget['status'],
+    program: t.category,
+  }))
 }
 
 export async function getDestinationPrograms(): Promise<Program[]> {
   return [
     {
-      id: 'p1',
-      name: 'Early Learning Program',
+      id: 'prog-1',
+      name: 'Security Program',
       phases: [
-        { id: 'ph1', name: 'Phase 1', programId: 'p1' },
-        { id: 'ph2', name: 'Phase 2', programId: 'p1' },
-        { id: 'ph3', name: 'Phase 3', programId: 'p1' },
+        { id: 'phase-1', name: 'Assessment' },
+        { id: 'phase-2', name: 'Remediation' },
       ],
     },
     {
-      id: 'p2',
-      name: 'Language Development Program',
+      id: 'prog-2',
+      name: 'Compliance Program',
       phases: [
-        { id: 'ph4', name: 'Phase 1', programId: 'p2' },
-        { id: 'ph5', name: 'Phase 2', programId: 'p2' },
-      ],
-    },
-    {
-      id: 'p3',
-      name: 'Social Skills Program',
-      phases: [
-        { id: 'ph6', name: 'Phase 1', programId: 'p3' },
-        { id: 'ph7', name: 'Phase 2', programId: 'p3' },
+        { id: 'phase-3', name: 'Audit' },
+        { id: 'phase-4', name: 'Certification' },
       ],
     },
   ]
+}
+
+export async function bulkChangeStatus(
+  targetIds: string[],
+  _newStatus: string
+): Promise<void> {
+  console.log('Bulk change status:', targetIds, _newStatus)
+}
+
+export async function bulkMoveTargets(
+  targetIds: string[],
+  _destination: string
+): Promise<void> {
+  console.log('Bulk move targets:', targetIds, _destination)
 }

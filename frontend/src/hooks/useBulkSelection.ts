@@ -1,42 +1,32 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { BulkRecord, BulkSelectionFilters } from '@/types/bulk-selection'
-import { getBulkRecords } from '@/lib/api/bulk-selection'
-
-interface UseBulkSelectionReturn {
-  records: BulkRecord[]
-  filters: BulkSelectionFilters
-  setSearch: (value: string) => void
-  setStatus: (value: string) => void
-  selectedIds: Set<string>
-  toggleSelection: (id: string) => void
-  toggleAll: () => void
-  clearSelection: () => void
-  isLoading: boolean
-  totalCount: number
-  currentPage: number
-  setCurrentPage: (page: number) => void
-}
+import { Target } from '@/types/targets'
+import { getTargets } from '@/lib/api/targets'
+import { useTargetFilters } from '@/hooks/useTargetFilters'
 
 const PAGE_SIZE = 5
 
-export function useBulkSelection(): UseBulkSelectionReturn {
-  const [allRecords, setAllRecords] = useState<BulkRecord[]>([])
-  const [filters, setFilters] = useState<BulkSelectionFilters>({
-    search: '',
-    status: '',
-  })
+export function useBulkSelection() {
+  const [allTargets, setAllTargets] = useState<Target[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
 
+  const {
+    filters,
+    setSearch,
+    setStatus,
+    setCategory,
+    filteredTargets,
+  } = useTargetFilters(allTargets)
+
   useEffect(() => {
     let cancelled = false
     setIsLoading(true)
-    getBulkRecords().then((data) => {
+    getTargets().then((data) => {
       if (!cancelled) {
-        setAllRecords(data)
+        setAllTargets(data)
         setIsLoading(false)
       }
     })
@@ -45,35 +35,10 @@ export function useBulkSelection(): UseBulkSelectionReturn {
     }
   }, [])
 
-  const filteredRecords = useMemo(() => {
-    let result = allRecords
-
-    if (filters.search) {
-      const lower = filters.search.toLowerCase()
-      result = result.filter(
-        (r) =>
-          r.name.toLowerCase().includes(lower) ||
-          r.assignee.toLowerCase().includes(lower) ||
-          r.type.toLowerCase().includes(lower)
-      )
-    }
-
-    if (filters.status) {
-      result = result.filter((r) => r.status === filters.status)
-    }
-
-    return result
-  }, [allRecords, filters])
-
-  const records = useMemo(() => {
+  const targets = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE
-    return filteredRecords.slice(start, start + PAGE_SIZE)
-  }, [filteredRecords, currentPage])
-
-  const setSearch = (value: string) =>
-    setFilters((f) => ({ ...f, search: value }))
-  const setStatus = (value: string) =>
-    setFilters((f) => ({ ...f, status: value }))
+    return filteredTargets.slice(start, start + PAGE_SIZE)
+  }, [filteredTargets, currentPage])
 
   const toggleSelection = (id: string) => {
     setSelectedIds((prev) => {
@@ -89,26 +54,27 @@ export function useBulkSelection(): UseBulkSelectionReturn {
 
   const toggleAll = () => {
     setSelectedIds((prev) => {
-      if (prev.size === records.length) {
+      if (prev.size === targets.length && targets.every((t) => prev.has(t.id))) {
         return new Set()
       }
-      return new Set(records.map((r) => r.id))
+      return new Set(targets.map((t) => t.id))
     })
   }
 
   const clearSelection = () => setSelectedIds(new Set())
 
   return {
-    records,
+    targets,
     filters,
     setSearch,
     setStatus,
+    setCategory,
     selectedIds,
     toggleSelection,
     toggleAll,
     clearSelection,
     isLoading,
-    totalCount: filteredRecords.length,
+    totalCount: filteredTargets.length,
     currentPage,
     setCurrentPage,
   }
