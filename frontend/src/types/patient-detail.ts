@@ -1,76 +1,108 @@
 export interface PatientDetail {
   id: string
-  name: string
+  firstName: string
+  lastName: string
   dateOfBirth: string
-  age: string
+  age: number
   gender: string
   patientId: string
+  medicalRecordNumber: string
+  primaryLanguage: string
+  interpreterNeeded: boolean
+  avatarInitials: string
+  treatmentStatus: string
+  category: string
   referringPhysician: string
-  status: string
-  authorization: string
-  reEvalDue: string
+}
+
+export interface Provider {
+  id: string
+  name: string
+  credentials: string
+  role: string
+}
+
+export interface Insurance {
+  name: string
+  authorizationStatus: string
 }
 
 export interface Diagnosis {
   icdCode: string
   description: string
-  date: string
-  provider: string
+  diagnosedDate: string
+  status: string
 }
 
 export interface Assessment {
-  name: string
+  instrument: string
   date: string
-  score: number
+  standardScore: number
   percentile: string
   severity: string
 }
 
 export interface TreatmentPlan {
-  goalDomain: string
-  activeGoals: number
-  status: string
-}
-
-export interface Session {
-  date: string
-  type: string
-  duration: string
-  clinician: string
-  goalAreas: string
+  domains: string
+  frequency: string
+  certificationPeriod: string
+  cptCodes: string
 }
 
 export interface Caregiver {
   name: string
   relationship: string
   phone: string
-  email: string
   preferredLanguage: string
-  homeProgramParticipation: string
 }
 
-export interface HomeProgram {
-  exercise: string
+export interface Exercise {
+  name: string
   frequency: string
   compliance: string
-  lastUpdated: string
 }
 
 export interface Referral {
-  source: string
+  provider: string
   date: string
   reason: string
   status: string
-  followUp: string
+}
+
+export interface Authorization {
+  cptCode: string
+  authorized: number
+  used: number
+  remaining: number
+  kxStatus: string
+}
+
+export interface Session {
+  date: string
+  time: string
+  type: string
+  provider: string
+}
+
+export interface ProgressNote {
+  date: string
+  noteType: string
+  provider: string
+  status: string
 }
 
 export interface PatientChartData {
   patient: PatientDetail
+  primaryProvider: Provider
+  cfSlp: Provider
+  insurance: Insurance
   diagnoses: Diagnosis[]
   assessments: Assessment[]
-  treatmentPlans: TreatmentPlan[]
-  sessions: Session[]
-  caregiver: Caregiver
-  homePrograms: HomeProgram[]
+  treatmentPlan: TreatmentPlan
+  caregivers: Caregiver[]
+  exercises: Exercise[]
   referrals: Referral[]
+  authorizations: Authorization[]
+  upcomingSessions: Session[]
+  progressNotes: ProgressNote[]
 }

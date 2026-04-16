@@ -1,103 +1,149 @@
 import type { PatientChartData } from "@/types/patient-detail"
 
-const MOCK_PATIENT_CHART: PatientChartData = {
+const mockPatientChart: PatientChartData = {
   patient: {
     id: "PAT-2024-0156",
-    name: "Sarah Mitchell",
+    firstName: "Sarah",
+    lastName: "Chen",
     dateOfBirth: "03/15/2019",
-    age: "4 years, 8 months",
+    age: 4,
     gender: "Female",
     patientId: "PAT-2024-0156",
-    referringPhysician: "Dr. Jennifer Lopez, MD",
-    status: "Active",
-    authorization: "Authorized",
-    reEvalDue: "12/15/24",
+    medicalRecordNumber: "12345678",
+    primaryLanguage: "English",
+    interpreterNeeded: true,
+    avatarInitials: "SC",
+    treatmentStatus: "Active Treatment",
+    category: "Pediatric",
+    referringPhysician: "Dr. Smith",
+  },
+  primaryProvider: {
+    id: "PROV-001",
+    name: "Dr. Maria Rodriguez",
+    credentials: "CCC-SLP",
+    role: "Primary CCC-SLP",
+  },
+  cfSlp: {
+    id: "PROV-002",
+    name: "Jessica Wang, MS",
+    credentials: "CF-SLP",
+    role: "CF-SLP",
+  },
+  insurance: {
+    name: "Blue Cross Blue Shield",
+    authorizationStatus: "Active",
   },
   diagnoses: [
     {
       icdCode: "F80.1",
       description: "Expressive language disorder",
-      date: "08/15/2024",
-      provider: "Dr. Jennifer Lopez",
+      diagnosedDate: "01/15/2024",
+      status: "Active",
     },
     {
       icdCode: "F80.2",
       description: "Mixed receptive-expressive language disorder",
-      date: "08/15/2024",
-      provider: "Dr. Jennifer Lopez",
+      diagnosedDate: "01/15/2024",
+      status: "Active",
     },
   ],
   assessments: [
     {
-      name: "CELF-5",
-      date: "08/20/2024",
-      score: 72,
-      percentile: "3rd",
+      instrument: "CELF-5",
+      date: "01/20/2024",
+      standardScore: 75,
+      percentile: "5th",
       severity: "Moderate",
     },
     {
-      name: "PPVT-5",
-      date: "08/22/2024",
-      score: 85,
-      percentile: "16th",
-      severity: "Mild",
+      instrument: "PLS-5",
+      date: "01/22/2024",
+      standardScore: 72,
+      percentile: "3rd",
+      severity: "Severe",
     },
   ],
-  treatmentPlans: [
-    { goalDomain: "Expressive Language", activeGoals: 3, status: "In Progress" },
-    { goalDomain: "Receptive Language", activeGoals: 2, status: "In Progress" },
-    { goalDomain: "Pragmatic Language", activeGoals: 1, status: "In Progress" },
-  ],
-  sessions: [
-    {
-      date: "11/15/2024",
-      type: "Individual",
-      duration: "45 min",
-      clinician: "Maria Rodriguez, SLP",
-      goalAreas: "Expressive, Receptive",
-    },
-    {
-      date: "11/08/2024",
-      type: "Individual",
-      duration: "45 min",
-      clinician: "Maria Rodriguez, SLP",
-      goalAreas: "Pragmatic",
-    },
-  ],
-  caregiver: {
-    name: "Jennifer Mitchell",
-    relationship: "Mother",
-    phone: "(555) 123-4567",
-    email: "jennifer.mitchell@email.com",
-    preferredLanguage: "English",
-    homeProgramParticipation: "Active",
+  treatmentPlan: {
+    domains: "Expressive Language, Receptive Language",
+    frequency: "2x/week, 45 minutes",
+    certificationPeriod: "02/01/2024 - 07/31/2024",
+    cptCodes: "92507, 92508",
   },
-  homePrograms: [
+  caregivers: [
     {
-      exercise: "Vocabulary Building Cards",
-      frequency: "Daily",
-      compliance: "85%",
-      lastUpdated: "11/10/2024",
+      name: "Lisa Chen",
+      relationship: "Mother",
+      phone: "(555) 123-4567",
+      preferredLanguage: "Mandarin",
     },
     {
-      exercise: "Following Directions Practice",
-      frequency: "3x weekly",
-      compliance: "70%",
-      lastUpdated: "11/12/2024",
+      name: "David Chen",
+      relationship: "Father",
+      phone: "(555) 123-4568",
+      preferredLanguage: "English",
+    },
+  ],
+  exercises: [
+    {
+      name: "Picture Naming",
+      frequency: "Daily, 10 min",
+      compliance: "85%",
+    },
+    {
+      name: "Following Directions",
+      frequency: "2x daily",
+      compliance: "60%",
     },
   ],
   referrals: [
     {
-      source: "Pediatric Associates",
-      date: "08/01/2024",
+      provider: "Dr. Smith (Pediatrics)",
+      date: "01/10/2024",
       reason: "Language delay concerns",
-      status: "Active",
-      followUp: "12/01/2024",
+      status: "Completed",
+    },
+  ],
+  authorizations: [
+    {
+      cptCode: "92507",
+      authorized: 24,
+      used: 8,
+      remaining: 16,
+      kxStatus: "Below Threshold",
+    },
+  ],
+  upcomingSessions: [
+    {
+      date: "03/15/2024",
+      time: "10:00 AM",
+      type: "Individual Therapy",
+      provider: "Jessica Wang, CF-SLP",
+    },
+    {
+      date: "03/18/2024",
+      time: "2:00 PM",
+      type: "Individual Therapy",
+      provider: "Jessica Wang, CF-SLP",
+    },
+  ],
+  progressNotes: [
+    {
+      date: "03/10/2024",
+      noteType: "Treatment Note",
+      provider: "Jessica Wang, CF-SLP",
+      status: "Signed",
+    },
+    {
+      date: "03/08/2024",
+      noteType: "Progress Report",
+      provider: "Dr. Maria Rodriguez",
+      status: "Draft",
     },
   ],
 }
 
-export async function getPatientChart(id: string): Promise<PatientChartData> {
-  void id
-  return MOCK_PATIENT_CHART
+export async function getPatientChart(patientId: string): Promise<PatientChartData> {
+  // Simulate API delay
+  await new Promise((resolve) => setTimeout(resolve, 300))
+  return { ...mockPatientChart, patient: { ...mockPatientChart.patient, id: patientId } }
 }
