@@ -1,7 +1,18 @@
 "use client"
 
-import { useState } from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
+import Link from "next/link"
+import { AlertTriangle } from "lucide-react"
+import { Button } from "@/components/ui/Button"
+import { Card, CardContent } from "@/components/ui/Card"
+import { Label } from "@/components/ui/Label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/Select"
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -10,72 +21,40 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/Breadcrumb"
-import { Badge } from "@/components/ui/Badge"
-import { Checkbox } from "@/components/ui/Checkbox"
-import { MoreVertical } from "lucide-react"
-
-/* ── inline SVG icons ── */
-const SpeechIcon = () => (
-  <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M2 4C2 2.89543 2.89543 2 4 2H16C17.1046 2 18 2.89543 18 4V12C18 13.1046 17.1046 14 16 14H6L2 18V4Z" fill="currentColor" />
-  </svg>
-)
-
-const HeartIcon = () => (
-  <svg className="w-5 h-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M10 17.5L8.55 16.15C4.4 12.36 1.5 9.72 1.5 6.5C1.5 3.78 3.62 1.5 6.25 1.5C7.74 1.5 9.17 2.21 10 3.33C10.83 2.21 12.26 1.5 13.75 1.5C16.38 1.5 18.5 3.78 18.5 6.5C18.5 9.72 15.6 12.36 11.45 16.15L10 17.5Z" fill="currentColor" />
-  </svg>
-)
-
-interface TargetItem {
-  name: string
-  icon: "speech" | "heart"
-  statusLabel: string
-  statusColor: string
-  progress: string
-  category: string
-  timestamp: string
-}
-
-const targets: TargetItem[] = [
-  {
-    name: "Mand for pizza only after breakfast time",
-    icon: "speech",
-    statusLabel: "In Treatment",
-    statusColor: "bg-blue-50 text-blue-700",
-    progress: "17% Independent",
-    category: "Communication / Mand",
-    timestamp: "Today @ 9:14 AM by Sarah J.",
-  },
-  {
-    name: "Mand for pizza only after breakfast time",
-    icon: "heart",
-    statusLabel: "In Treatment",
-    statusColor: "bg-blue-50 text-blue-700",
-    progress: "17% Independent",
-    category: "Communication / Mand",
-    timestamp: "Today @ 9:14 AM by Sarah J.",
-  },
-  {
-    name: "Ask nicely for the car",
-    icon: "speech",
-    statusLabel: "In Treatment",
-    statusColor: "bg-blue-50 text-blue-700",
-    progress: "17% Independent",
-    category: "Communication / Mand",
-    timestamp: "Today @ 9:14 AM by Sarah J.",
-  },
-]
+import { SOAPNoteForm } from "@/components/features/session-note/SOAPNoteForm"
+import { useSessionNoteForm } from "@/hooks/useSessionNote"
+import {
+  getPatient,
+  saveSessionNoteDraft,
+  submitSessionNote,
+} from "@/lib/api/session-notes"
 
 export default function SessionNotePage() {
   const params = useParams()
+  const router = useRouter()
   const patientId = params.id as string
-  const [activeTab, setActiveTab] = useState<"skills" | "behaviors">("skills")
+  const patient = getPatient()
+  const { formData, updateField, updateTelehealth, updateSignature } =
+    useSessionNoteForm()
+
+  const handleCancel = () => {
+    router.push("/patients/" + patientId)
+  }
+
+  const handleSaveDraft = async () => {
+    await saveSessionNoteDraft(formData)
+    router.push("/patients/" + patientId)
+  }
+
+  const handleSignSubmit = async () => {
+    await submitSessionNote(formData)
+    router.push("/patients/" + patientId)
+  }
 
   return (
-    <div className="flex flex-col flex-1">
-      {/* Breadcrumb / Sidebar area */}
-      <div className="px-6 pt-6">
+    <div className="flex flex-col flex-1 p-6 gap-6">
+      {/* render_sequence[0]: Header with breadcrumb and title */}
+      <div className="flex flex-col gap-4">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
@@ -83,97 +62,154 @@ export default function SessionNotePage() {
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink href={`/patients/${patientId}`}>Samantha Green</BreadcrumbLink>
+              <BreadcrumbLink href={"/patients/" + patientId}>
+                {patient.name}
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbPage>Treatment</BreadcrumbPage>
+              <BreadcrumbLink href={"/patients/" + patientId + "/notes"}>
+                Progress Notes
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Session SOAP Note</BreadcrumbPage>
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-col bg-white border-b px-6 py-6">
-        <div className="flex flex-row items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Samantha Green</h1>
-        </div>
-      </div>
-
-      {/* Tabs: Skills | Behaviors */}
-      <div className="flex flex-row border-b border-gray-200 px-6">
-        <button
-          type="button"
-          onClick={() => setActiveTab("skills")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "skills"
-              ? "bg-indigo-50 text-indigo-700 border-indigo-700"
-              : "text-gray-500 border-transparent hover:text-gray-700"
-          }`}
-        >
-          Skills
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab("behaviors")}
-          className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-            activeTab === "behaviors"
-              ? "bg-indigo-50 text-indigo-700 border-indigo-700"
-              : "text-gray-500 border-transparent hover:text-gray-700"
-          }`}
-        >
-          Behaviors
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="flex flex-col p-6 gap-6">
-        {/* All targets header */}
-        <div className="flex flex-row items-center gap-2">
-          <h2 className="text-base font-semibold text-gray-900">All targets</h2>
-          <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 font-medium">3</Badge>
-        </div>
-
-        {/* Communication section */}
-        <div className="flex flex-col gap-1">
-          <div className="flex flex-row items-center gap-2">
-            <h3 className="text-lg font-semibold text-gray-900">Communication</h3>
-            <Badge className="bg-indigo-50 text-indigo-700 hover:bg-indigo-50 font-medium">3</Badge>
+        <div className="flex flex-row justify-between items-center">
+          <div className="flex flex-col">
+            <h1 className="text-2xl font-bold">Session SOAP Note</h1>
+            <p className="text-sm text-muted-foreground">
+              {patient.name} &bull; DOB: {patient.dateOfBirth} &bull; Session:{" "}
+              {patient.sessionDate}
+            </p>
           </div>
-          <p className="text-sm text-gray-500">Labeling of Community Helpers Based on Actions</p>
         </div>
+      </div>
 
-        {/* Target rows */}
-        <div className="flex flex-col border rounded-lg divide-y divide-gray-100">
-          {targets.map((target, idx) => (
-            <div
-              key={idx}
-              className="flex flex-row items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors"
+      {/* render_sequence[1]: Medicare warning card */}
+      <Card className="bg-amber-50 border-amber-200">
+        <CardContent className="flex flex-row items-center gap-3 p-4">
+          <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+          <span className="text-sm text-amber-900">
+            Medicare therapy cap threshold approaching. KX modifier may be
+            required for continued services.
+          </span>
+        </CardContent>
+      </Card>
+
+      {/* render_sequence[2]: Session metadata form */}
+      <Card>
+        <CardContent className="flex flex-row gap-6 p-5">
+          <div className="flex flex-col gap-1.5">
+            <Label>Subdomain</Label>
+            <Select
+              value={formData.subdomain}
+              onValueChange={(v) => updateField("subdomain", v)}
             >
-              <Checkbox className="flex-shrink-0" />
-              <span
-                className={`flex items-center justify-center w-6 h-6 flex-shrink-0 ${
-                  target.icon === "speech" ? "text-blue-600" : "text-red-400"
-                }`}
-              >
-                {target.icon === "speech" ? <SpeechIcon /> : <HeartIcon />}
-              </span>
-              <span className="text-sm text-gray-900 font-medium flex-shrink-0">
-                {target.name}
-              </span>
-              <span
-                className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium flex-shrink-0 ${target.statusColor}`}
-              >
-                {target.statusLabel}
-              </span>
-              <span className="text-xs text-gray-500 flex-shrink-0">{target.progress}</span>
-              <span className="text-xs text-gray-400 ml-auto flex-shrink-0">{target.category}</span>
-              <span className="text-xs text-gray-400 flex-shrink-0">{target.timestamp}</span>
-              <button type="button" className="p-1 flex-shrink-0 text-gray-400 hover:text-gray-600">
-                <MoreVertical className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
+              <SelectTrigger className="bg-white border border-[#E5E5E5] w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="articulation">
+                  Articulation/Phonology
+                </SelectItem>
+                <SelectItem value="expressive_language">
+                  Expressive Language
+                </SelectItem>
+                <SelectItem value="receptive_language">
+                  Receptive Language
+                </SelectItem>
+                <SelectItem value="fluency">Fluency</SelectItem>
+                <SelectItem value="voice">Voice/Resonance</SelectItem>
+                <SelectItem value="swallowing">
+                  Swallowing/Dysphagia
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Service Delivery</Label>
+            <Select
+              value={formData.serviceDelivery}
+              onValueChange={(v) => updateField("serviceDelivery", v)}
+            >
+              <SelectTrigger className="bg-white border border-[#E5E5E5] w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="in_person">In-Person</SelectItem>
+                <SelectItem value="telehealth">Telehealth</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>CPT Code</Label>
+            <Select
+              value={formData.cptCode}
+              onValueChange={(v) => updateField("cptCode", v)}
+            >
+              <SelectTrigger className="bg-white border border-[#E5E5E5] w-[280px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="92507">
+                  92507 - Speech/Language Therapy
+                </SelectItem>
+                <SelectItem value="92508">
+                  92508 - Speech/Language Re-evaluation
+                </SelectItem>
+                <SelectItem value="92526">
+                  92526 - Oral Function Therapy
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Duration (minutes)</Label>
+            <Select
+              value={formData.duration}
+              onValueChange={(v) => updateField("duration", v)}
+            >
+              <SelectTrigger className="bg-white border border-[#E5E5E5] w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-white">
+                <SelectItem value="30">30</SelectItem>
+                <SelectItem value="45">45</SelectItem>
+                <SelectItem value="60">60</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>ICD-10 Codes</Label>
+            <span className="text-sm text-gray-700 py-2">
+              {formData.icdCodes}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* render_sequence[3]: SOAP Note Tabs (component) */}
+      <SOAPNoteForm
+        formData={formData}
+        onUpdateField={updateField}
+        onUpdateTelehealth={updateTelehealth}
+        onUpdateSignature={updateSignature}
+      />
+
+      {/* render_sequence[4]: Actions */}
+      <div className="flex flex-row justify-between gap-4">
+        <Button variant="secondary" onClick={handleCancel}>
+          Cancel
+        </Button>
+        <div className="flex flex-row gap-4">
+          <Button variant="secondary" onClick={handleSaveDraft}>
+            Save Draft
+          </Button>
+          <Button onClick={handleSignSubmit}>Sign &amp; Submit</Button>
         </div>
       </div>
     </div>

@@ -94,7 +94,7 @@ export function TelehealthSection({ data, onUpdate }: TelehealthSectionProps) {
         <div className="flex items-center gap-2">
           <Checkbox
             id="telehealth-consent"
-            checked={data.consentConfirmed}
+            checked={!!data.consentConfirmed}
             onCheckedChange={(checked) =>
               onUpdate("consentConfirmed", checked === true)
             }

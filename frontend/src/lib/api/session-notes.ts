@@ -1,78 +1,144 @@
-import type { Patient, SessionNoteData, ObjectiveGoal } from "@/types/session-note"
+import type {
+  PatientInfo,
+  SessionNoteFormData,
+  GoalProgress,
+  SessionNoteData,
+} from "@/types/session-note"
 
-export function getPatient(): Patient {
+export function getPatient(): PatientInfo {
   return {
-    id: "123",
+    id: "12345",
     name: "Sarah Johnson",
     dateOfBirth: "03/15/2018",
-    primaryDiagnosis: "F80.1 - Expressive language disorder",
-    avatarUrl: "/avatars/sarah-johnson.jpg",
-    authorizationVisitsRemaining: 20,
-    specialty: "Language",
+    sessionDate: "01/15/2024",
+    insurance: "Aetna PPO",
+    authorizationNumber: "AUTH-2024-0892",
   }
 }
 
-export function getDefaultObjectiveGoals(): ObjectiveGoal[] {
+export function getDefaultGoals(): GoalProgress[] {
   return [
     {
-      goalTarget: "Initial /s/ sound production",
+      id: "g1",
+      goalDescription: "Two-word utterances for requesting",
       accuracyPercent: "75%",
-      cueingLevel: "minimal",
+      cueingLevel: "Direct Cue",
       trials: "15/20",
-      notes: "Good progress with visual cues",
+      progressStatus: "Progressing",
     },
     {
-      goalTarget: "2-word phrase production",
+      id: "g2",
+      goalDescription: "Action + object combinations",
       accuracyPercent: "60%",
-      cueingLevel: "moderate",
+      cueingLevel: "Model",
       trials: "12/20",
-      notes: "Improving with modeling",
+      progressStatus: "Minimal Progress",
+    },
+    {
+      id: "g3",
+      goalDescription: "Spontaneous labeling of familiar objects",
+      accuracyPercent: "85%",
+      cueingLevel: "Independent",
+      trials: "17/20",
+      progressStatus: "Mastered",
     },
   ]
 }
 
+export function getDefaultSessionNoteForm(): SessionNoteFormData {
+  return {
+    subdomain: "expressive_language",
+    serviceDelivery: "in_person",
+    cptCode: "92507",
+    duration: "60",
+    icdCodes: "F80.1, F80.2",
+    subjective: "",
+    objectiveNarrative: "",
+    assessment: "",
+    plan: "",
+    hepProvided: true,
+    hepInstructions: "",
+    telehealth: {
+      platform: "",
+      patientLocation: "",
+      providerLocation: "",
+      caregiverPresent: false,
+      consentConfirmed: false,
+      technologyIssues: "",
+    },
+    signature: {
+      treatingProvider: "Jessica Martinez, CF-SLP",
+      supervisingSLP: "Dr. Sarah Chen, CCC-SLP",
+      coSignatureRequired: true,
+    },
+    goals: getDefaultGoals(),
+  }
+}
+
+// Backward-compatible function for old hook
 export function getDefaultSessionNote(): SessionNoteData {
   return {
-    patientId: "123",
-    sessionDate: "2024-01-15",
+    template: "Expressive Language",
+    dateOfService: "2024-01-15",
     startTime: "09:00",
-    endTime: "09:30",
-    duration: "30 minutes",
-    serviceType: "individual",
+    endTime: "10:00",
+    duration: "60 min",
+    serviceType: "Individual Treatment",
     cptCode: "92507",
-    clinician: "Jennifer Smith, MS, CCC-SLP",
-    supervisingSLP: "dr_johnson",
-    serviceDeliveryMode: "in_person",
-    subdomain: "articulation",
-    subjective:
-      "Mother reports that Sarah has been practicing her speech sounds at home using the worksheets provided. She notes improvement in 's' sound production during structured activities but continues to struggle with spontaneous speech.",
-    objectiveGoals: getDefaultObjectiveGoals(),
-    stimuliMaterials:
-      "Picture cards for /s/ words, mirror for visual feedback, reinforcement stickers",
-    patientEngagement:
-      "Patient was cooperative and engaged throughout the session. Required minimal redirection.",
-    assessment:
-      "Patient demonstrates good progress in articulation skills with structured practice. Shows ability to self-correct with minimal cueing. Continued skilled intervention needed for generalization to conversational speech.",
-    nextSessionFocus:
-      "Continue /s/ sound production practice, introduce /s/ blends",
-    cueingAdjustments:
-      "Reduce visual cues, increase use of auditory discrimination tasks",
-    homeProgramUpdates:
-      "Continue daily practice with /s/ word lists, add mirror practice",
-    referralRecommendations: "None at this time",
-    frequencyDurationRecommendations:
-      "Continue 2x/week for 30-minute sessions",
+    serviceDeliveryMode: "In-Person",
+    patientReport: "",
+    caregiverPresent: "No",
+    engagementLevel: "Good",
+    goals: [
+      {
+        goal: "Expressive Language Goal 1",
+        targetBehavior: "Two-word utterances",
+        accuracy: "75%",
+        cueingLevel: "Direct Cue",
+        trials: "15/20",
+        notes: "",
+      },
+      {
+        goal: "Expressive Language Goal 2",
+        targetBehavior: "Action + object combos",
+        accuracy: "60%",
+        cueingLevel: "Model",
+        trials: "12/20",
+        notes: "",
+      },
+    ],
+    articulationData: "",
+    clinicalAssessment: "",
+    nextSessionFocus: "",
+    treatmentModifications: "",
+    homeProgramAssigned: "",
+    caregiverTraining: "No",
+    anticipatedDischarge: "",
+    telehealth: {
+      platform: "N/A - In-Person",
+      patientLocation: "",
+      providerLocation: "",
+      consentConfirmed: "N/A",
+      connectivityQuality: "N/A",
+    },
+    signature: {
+      providerSignature: "Jessica Martinez, CF-SLP",
+      requiresCosignature: "Yes - CF-SLP",
+      supervisingProvider: "",
+    },
   }
 }
 
 export async function saveSessionNoteDraft(
-  _data: SessionNoteData
-): Promise<{ success: boolean }> {
-  return { success: true }
+  data: SessionNoteFormData | SessionNoteData
+): Promise<void> {
+  // Mock API call
+  await new Promise((resolve) => setTimeout(resolve, 500))
 }
 
 export async function submitSessionNote(
-  _data: SessionNoteData
-): Promise<{ success: boolean }> {
-  return { success: true }
+  data: SessionNoteFormData | SessionNoteData
+): Promise<void> {
+  // Mock API call
+  await new Promise((resolve) => setTimeout(resolve, 500))
 }

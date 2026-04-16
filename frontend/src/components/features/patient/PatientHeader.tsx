@@ -27,7 +27,13 @@ export function PatientHeader({ data }: PatientHeaderProps) {
           </BreadcrumbItem>
           <BreadcrumbSeparator />
           <BreadcrumbItem>
-            <BreadcrumbPage>Patient Chart</BreadcrumbPage>
+            <BreadcrumbLink href={`/patients/${patient.firstName?.toLowerCase()}`}>
+              {patient.firstName} {patient.lastName}
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Treatment</BreadcrumbPage>
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>

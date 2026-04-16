@@ -1,9 +1,69 @@
 "use client"
 
 import { useState, useCallback } from "react"
-import type { SessionNoteData, ObjectiveGoal, TelehealthData } from "@/types/session-note"
-import { getDefaultSessionNote } from "@/lib/api/session-notes"
+import type {
+  SessionNoteFormData,
+  GoalProgress,
+  TelehealthFormData,
+  SignatureFormData,
+  SessionNoteData,
+  GoalData,
+  TelehealthInfo,
+  SignatureInfo,
+} from "@/types/session-note"
+import { getDefaultSessionNoteForm, getDefaultSessionNote } from "@/lib/api/session-notes"
 
+export function useSessionNoteForm() {
+  const [formData, setFormData] = useState<SessionNoteFormData>(getDefaultSessionNoteForm)
+
+  const updateField = useCallback(
+    <K extends keyof SessionNoteFormData>(field: K, value: SessionNoteFormData[K]) => {
+      setFormData((prev) => ({ ...prev, [field]: value }))
+    },
+    []
+  )
+
+  const updateGoalProgress = useCallback(
+    (index: number, field: keyof GoalProgress, value: string) => {
+      setFormData((prev) => {
+        const goals = [...prev.goals]
+        goals[index] = { ...goals[index], [field]: value }
+        return { ...prev, goals }
+      })
+    },
+    []
+  )
+
+  const updateTelehealth = useCallback(
+    <K extends keyof TelehealthFormData>(field: K, value: TelehealthFormData[K]) => {
+      setFormData((prev) => ({
+        ...prev,
+        telehealth: { ...prev.telehealth, [field]: value },
+      }))
+    },
+    []
+  )
+
+  const updateSignature = useCallback(
+    <K extends keyof SignatureFormData>(field: K, value: SignatureFormData[K]) => {
+      setFormData((prev) => ({
+        ...prev,
+        signature: { ...prev.signature, [field]: value },
+      }))
+    },
+    []
+  )
+
+  return {
+    formData,
+    updateField,
+    updateGoalProgress,
+    updateTelehealth,
+    updateSignature,
+  }
+}
+
+// Backward-compatible hook for old components
 export function useSessionNote() {
   const [formData, setFormData] = useState<SessionNoteData>(getDefaultSessionNote)
 
@@ -15,42 +75,41 @@ export function useSessionNote() {
   )
 
   const updateGoal = useCallback(
-    (index: number, field: keyof ObjectiveGoal, value: string) => {
+    (index: number, field: keyof GoalData, value: string) => {
       setFormData((prev) => {
-        const goals = [...prev.objectiveGoals]
+        const goals = [...prev.goals]
         goals[index] = { ...goals[index], [field]: value }
-        return { ...prev, objectiveGoals: goals }
+        return { ...prev, goals }
       })
     },
     []
   )
 
   const updateTelehealth = useCallback(
-    <K extends keyof TelehealthData>(field: K, value: TelehealthData[K]) => {
+    <K extends keyof TelehealthInfo>(field: K, value: TelehealthInfo[K]) => {
       setFormData((prev) => ({
         ...prev,
-        telehealth: {
-          platform: "",
-          connectionQuality: "",
-          patientLocation: "",
-          providerLocation: "",
-          clinicalObservations: "",
-          consentConfirmed: false,
-          ...prev.telehealth,
-          [field]: value,
-        },
+        telehealth: { ...prev.telehealth, [field]: value },
       }))
     },
     []
   )
 
-  const isTelehealth = formData.serviceDeliveryMode === "telehealth"
+  const updateSignature = useCallback(
+    <K extends keyof SignatureInfo>(field: K, value: SignatureInfo[K]) => {
+      setFormData((prev) => ({
+        ...prev,
+        signature: { ...prev.signature, [field]: value },
+      }))
+    },
+    []
+  )
 
   return {
     formData,
     updateField,
     updateGoal,
     updateTelehealth,
-    isTelehealth,
+    updateSignature,
   }
 }
