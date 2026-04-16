@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { Patient, PatientStatus } from '@/types/patient'
+import { Patient } from '@/types/patient'
 import { Badge } from '@/components/ui/Badge'
 import { Checkbox } from '@/components/ui/Checkbox'
 import { Card } from '@/components/ui/Card'
@@ -21,7 +21,7 @@ interface PatientsTableProps {
   onToggleAll: () => void
 }
 
-function getStatusBadgeClasses(status: PatientStatus): string {
+function getStatusBadgeClasses(status: string): string {
   switch (status) {
     case 'Active':
       return 'bg-green-100 text-green-700 hover:bg-green-100'

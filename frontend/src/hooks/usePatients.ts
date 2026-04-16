@@ -9,12 +9,12 @@ const ITEMS_PER_PAGE = 5
 export function usePatients(patients: Patient[]) {
   const [search, setSearch] = useState("")
   const [statusFilter, setStatusFilter] = useState("")
-  const [therapistFilter, setTherapistFilter] = useState("")
+  const [providerFilter, setProviderFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
 
   const filtered = useMemo(
-    () => filterPatients(patients, search, statusFilter, therapistFilter),
-    [patients, search, statusFilter, therapistFilter]
+    () => filterPatients(patients, search, statusFilter, providerFilter),
+    [patients, search, statusFilter, providerFilter]
   )
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE))
@@ -27,8 +27,8 @@ export function usePatients(patients: Patient[]) {
     setSearch,
     statusFilter,
     setStatusFilter,
-    therapistFilter,
-    setTherapistFilter,
+    providerFilter,
+    setProviderFilter,
     currentPage: safePage,
     setCurrentPage,
     totalPages,
