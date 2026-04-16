@@ -3,7 +3,7 @@
 import { useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
-import { ArrowLeft, Target, ChevronRight, ChevronDown, Diamond, Brain, MessageCircle, Heart, MoreVertical, Plus, Leaf, Hand } from "lucide-react"
+import { ArrowLeft, Target, ChevronRight, ChevronDown, Diamond, Brain, MessageCircle, Heart, MoreVertical, Plus, Leaf, Hand, Library, Eye } from "lucide-react"
 import { Button } from "@/components/ui/Button"
 import { Badge } from "@/components/ui/Badge"
 
@@ -21,7 +21,19 @@ export default function SessionNotePage() {
   }
 
   return (
-    <div className="flex flex-col flex-1 p-6 gap-6">
+    <div className="flex flex-row flex-1">
+      {/* Sidebar breadcrumb navigation */}
+      <aside className="w-[240px] border-r border-gray-200 p-4 flex flex-col gap-2">
+        <nav className="flex flex-row items-center gap-1 text-sm text-gray-500">
+          <Link href="/patients" className="hover:text-gray-700">Patients</Link>
+          <ChevronRight className="w-3 h-3" />
+          <Link href={"/patients/" + patientId} className="hover:text-gray-700">Samantha Green</Link>
+          <ChevronRight className="w-3 h-3" />
+          <span className="text-gray-900 font-medium">Treatment</span>
+        </nav>
+      </aside>
+
+      <div className="flex flex-col flex-1 p-6 gap-6">
       {/* render_sequence[0]: Back button and patient name header */}
       <div className="flex flex-col gap-4">
         <Link
@@ -60,7 +72,7 @@ export default function SessionNotePage() {
 
       {/* render_sequence[2]: All targets row */}
       <div className="flex flex-row items-center gap-2 py-2">
-        <Target className="w-4 h-4 text-gray-500" />
+        <Eye className="w-4 h-4 text-gray-500" />
         <span className="text-sm font-medium text-gray-900">All targets</span>
         <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 ml-1 text-xs px-2 py-0.5">
           3
@@ -121,7 +133,10 @@ export default function SessionNotePage() {
           {expandedAreas.communication && (
             <div className="ml-9 flex flex-col gap-0 mt-1">
               {/* Page title */}
-              <h2 className="text-[16px] font-semibold text-gray-900 px-3 py-2">Communication</h2>
+              <div className="flex flex-row items-center gap-2 px-3 py-2">
+                <h2 className="text-[16px] font-semibold text-gray-900">Communication</h2>
+                <Badge className="bg-gray-100 text-gray-700 hover:bg-gray-100 text-xs px-2 py-0.5">3</Badge>
+              </div>
 
               {/* First target row */}
               <div className="flex flex-row items-center gap-3 px-3 py-2 rounded-md hover:bg-gray-50 group">
@@ -172,10 +187,10 @@ export default function SessionNotePage() {
                 <span className="text-sm text-gray-700">Helpers Based on Actions</span>
               </label>
 
-              {/* Create Skill button */}
+              {/* Add from library button */}
               <button className="flex flex-row items-center gap-2 px-3 py-2 ml-4 text-sm text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded-md">
-                <Plus className="w-4 h-4" />
-                <span>Create Skill</span>
+                <Library className="w-4 h-4" />
+                <span>Add from library</span>
               </button>
             </div>
           )}
@@ -223,6 +238,7 @@ export default function SessionNotePage() {
           )}
         </button>
       </div>
+    </div>
     </div>
   )
 }
