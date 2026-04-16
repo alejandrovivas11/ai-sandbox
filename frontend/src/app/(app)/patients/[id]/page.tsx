@@ -1,222 +1,432 @@
 "use client"
 
-import Link from "next/link"
+import { useParams } from "next/navigation"
+import { FileText } from "lucide-react"
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/Card"
 import { Badge } from "@/components/ui/Badge"
-import { Button } from "@/components/ui/Button"
-import { Card, CardContent } from "@/components/ui/Card"
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-} from "@/components/ui/Table"
-import { usePatientChart } from "@/hooks/usePatientChart"
-import { PatientHeader } from "@/components/features/patient/PatientHeader"
-import { DiagnosisTable } from "@/components/features/patient/DiagnosisTable"
-import { AssessmentTable } from "@/components/features/patient/AssessmentTable"
-import { TreatmentPlanSummary } from "@/components/features/patient/TreatmentPlanSummary"
-import { CaregiverTable } from "@/components/features/patient/CaregiverTable"
-import { ExerciseTable } from "@/components/features/patient/ExerciseTable"
+import { Separator } from "@/components/ui/Separator"
+import { Spinner } from "@/components/ui/Spinner"
+import { usePatient } from "@/hooks/usePatient"
+import { PatientHeader } from "@/components/features/patient-chart/PatientHeader"
+import { SessionHistoryTable } from "@/components/features/patient-chart/SessionHistoryTable"
 
-function statusBadgeClass(status: string) {
-  switch (status.toLowerCase()) {
-    case "active":
-    case "completed":
-    case "signed":
-    case "below threshold":
-      return "bg-green-100 text-green-700 hover:bg-green-100"
-    case "draft":
-    case "pending":
-      return "bg-yellow-100 text-yellow-700 hover:bg-yellow-100"
-    default:
-      return "bg-gray-100 text-gray-700 hover:bg-gray-100"
-  }
-}
+export default function PatientChartPage() {
+  const params = useParams()
+  const patientId = params.id as string
+  const { data, isLoading, error } = usePatient(patientId)
 
-export default function PatientDetailPage() {
-  const { data, loading, error } = usePatientChart("PAT-2024-0156")
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <span className="text-sm text-gray-500">Loading patient data...</span>
+        <Spinner size="lg" />
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <span className="text-sm text-red-600">{error || "Patient not found"}</span>
+      <div className="p-6 text-red-600">
+        Failed to load patient data.
       </div>
     )
   }
 
+  const {
+    patient,
+    provider,
+    referringPhysician,
+    diagnoses,
+    assessments,
+    treatmentPlan,
+    sessions,
+    authorization,
+    caregivers,
+    homePrograms,
+    documents,
+    referralInfo,
+  } = data
+
   return (
-    <div className="flex flex-col flex-1">
-      {/* Render sequence index 0: header */}
-      <PatientHeader data={data} />
+    <div className="flex flex-col p-6 gap-6">
+      {/* Header section - renders INSIDE page, BEFORE main content */}
+      <PatientHeader
+        patient={patient}
+        provider={provider}
+        referringPhysician={referringPhysician}
+        authorization={authorization}
+      />
 
-      {/* Render sequence index 1: main two-column grid */}
-      <main className="grid grid-cols-2 gap-6 p-6">
-        {/* Left column: clinical data */}
-        <div className="flex flex-col gap-6">
-          <DiagnosisTable diagnoses={data.diagnoses} />
-          <AssessmentTable assessments={data.assessments} />
-          <TreatmentPlanSummary plan={data.treatmentPlan} />
-          <CaregiverTable caregivers={data.caregivers} />
-        </div>
-
-        {/* Right column: operational data */}
-        <div className="flex flex-col gap-6">
-          <ExerciseTable exercises={data.exercises} />
-
-          {/* Referral Tracking */}
+      {/* Main content area */}
+      <main className="flex flex-col gap-6">
+        {/* render_sequence[0]: Active Diagnoses + Assessment Summary */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Active Diagnoses card */}
           <Card>
-            <CardContent className="p-5">
-              <div className="flex flex-row items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-900">Referral Tracking</h2>
-                <Button variant="secondary" size="sm">+ Add Referral</Button>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-gray-900">
+                Active Diagnoses
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                {diagnoses.map((dx) => (
+                  <div
+                    key={dx.id}
+                    className="flex flex-row justify-between items-center"
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-sm font-medium text-gray-900">
+                        {dx.code} - {dx.description}
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        Onset: {dx.onsetDate}
+                      </span>
+                    </div>
+                    <Badge
+                      variant="default"
+                      className={
+                        dx.type === "Primary"
+                          ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
+                          : "bg-gray-100 text-gray-700 hover:bg-gray-100"
+                      }
+                    >
+                      {dx.type}
+                    </Badge>
+                  </div>
+                ))}
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-gray-200">
-                    <TableHead className="text-xs font-medium text-gray-500">Provider</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Date</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Reason</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.referrals.map((ref) => (
-                    <TableRow key={`${ref.provider}-${ref.date}`} className="border-b border-gray-100">
-                      <TableCell className="text-sm text-gray-700">{ref.provider}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{ref.date}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{ref.reason}</TableCell>
-                      <TableCell>
-                        <Badge className={statusBadgeClass(ref.status)}>{ref.status}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </CardContent>
           </Card>
 
-          {/* Authorization Summary */}
+          {/* Assessment Summary card */}
           <Card>
-            <CardContent className="p-5">
-              <div className="flex flex-row items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-900">Authorization Summary</h2>
-                <Button variant="secondary" size="sm">Request Auth</Button>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-gray-900">
+                Assessment Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                {assessments.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex flex-row justify-between"
+                  >
+                    <span className="text-sm font-medium text-gray-900">
+                      {a.name}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      Standard Score: {a.standardScore} ({a.percentile}
+                      {getOrdinalSuffix(a.percentile)} %ile)
+                    </span>
+                  </div>
+                ))}
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm font-medium text-gray-900">
+                    Overall Severity
+                  </span>
+                  <Badge
+                    variant="default"
+                    className="bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                  >
+                    Moderate
+                  </Badge>
+                </div>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-gray-200">
-                    <TableHead className="text-xs font-medium text-gray-500">CPT Code</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Authorized</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Used</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Remaining</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">KX Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.authorizations.map((auth) => (
-                    <TableRow key={auth.cptCode} className="border-b border-gray-100">
-                      <TableCell className="text-sm text-gray-700">{auth.cptCode}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{auth.authorized}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{auth.used}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{auth.remaining}</TableCell>
-                      <TableCell>
-                        <Badge className={statusBadgeClass(auth.kxStatus)}>{auth.kxStatus}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Sessions */}
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex flex-row items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-900">Upcoming Sessions</h2>
-                <Button variant="secondary" size="sm">Schedule Session</Button>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-gray-200">
-                    <TableHead className="text-xs font-medium text-gray-500">Date</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Time</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Type</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Provider</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.upcomingSessions.map((s) => (
-                    <TableRow key={`${s.date}-${s.time}`} className="border-b border-gray-100">
-                      <TableCell className="text-sm text-gray-700">{s.date}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{s.time}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{s.type}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{s.provider}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-
-          {/* Recent Progress Notes */}
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex flex-row items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-gray-900">Recent Progress Notes</h2>
-                <Button variant="secondary" size="sm">Create Note</Button>
-              </div>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-b border-gray-200">
-                    <TableHead className="text-xs font-medium text-gray-500">Date</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Note Type</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Provider</TableHead>
-                    <TableHead className="text-xs font-medium text-gray-500">Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.progressNotes.map((note) => (
-                    <TableRow key={`${note.date}-${note.noteType}`} className="border-b border-gray-100">
-                      <TableCell className="text-sm text-gray-700">{note.date}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{note.noteType}</TableCell>
-                      <TableCell className="text-sm text-gray-700">{note.provider}</TableCell>
-                      <TableCell>
-                        <Badge className={statusBadgeClass(note.status)}>{note.status}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
             </CardContent>
           </Card>
         </div>
+
+        {/* render_sequence[1]: Treatment Plan Summary + Authorization Summary */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Treatment Plan Summary card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-gray-900">
+                Treatment Plan Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Plan Certification: {treatmentPlan.certificationDate}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    Next Recert: {treatmentPlan.recertDate}
+                  </span>
+                </div>
+                <Separator />
+                <div className="flex flex-col gap-3">
+                  {treatmentPlan.goals.map((goal) => (
+                    <div
+                      key={goal.id}
+                      className="flex flex-row justify-between"
+                    >
+                      <span className="text-sm font-medium text-gray-900">
+                        {goal.name}
+                      </span>
+                      <Badge
+                        variant="default"
+                        className="bg-blue-100 text-blue-700 hover:bg-blue-100"
+                      >
+                        {goal.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Authorization Summary card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-gray-900">
+                Authorization Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm font-medium text-gray-900">
+                    Authorization: {authorization.authNumber}
+                  </span>
+                  <Badge
+                    variant="default"
+                    className="bg-green-100 text-green-700 hover:bg-green-100"
+                  >
+                    {authorization.status}
+                  </Badge>
+                </div>
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Authorized Units: {authorization.authorizedUnits}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    Used: {authorization.usedUnits}
+                  </span>
+                </div>
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm text-green-600">
+                    Remaining:{" "}
+                    {authorization.authorizedUnits - authorization.usedUnits}
+                  </span>
+                  <span className="text-sm text-muted-foreground">
+                    Expires: {authorization.expirationDate}
+                  </span>
+                </div>
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm font-medium text-gray-900">
+                    KX Modifier Status
+                  </span>
+                  <Badge
+                    variant="default"
+                    className="bg-green-100 text-green-700 hover:bg-green-100"
+                  >
+                    {authorization.kxModifierStatus}
+                  </Badge>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* render_sequence[2]: Session History (full-width) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-gray-900">
+              Session History
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <SessionHistoryTable sessions={sessions} />
+          </CardContent>
+        </Card>
+
+        {/* render_sequence[3]: Caregiver Information + Home Exercise Program */}
+        <div className="grid grid-cols-2 gap-6">
+          {/* Caregiver Information card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-gray-900">
+                Caregiver Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm font-medium text-gray-900">
+                    {caregivers[0].name} ({caregivers[0].relationship})
+                  </span>
+                  <Badge
+                    variant="default"
+                    className="bg-blue-100 text-blue-700 hover:bg-blue-100"
+                  >
+                    {caregivers[0].type}
+                  </Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {caregivers[0].phone} &bull; {caregivers[0].email}
+                </span>
+                <Separator />
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm font-medium text-gray-900">
+                    {caregivers[1].name} ({caregivers[1].relationship})
+                  </span>
+                  <Badge
+                    variant="default"
+                    className="bg-gray-100 text-gray-700 hover:bg-gray-100"
+                  >
+                    {caregivers[1].type}
+                  </Badge>
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  {caregivers[1].phone} &bull; {caregivers[1].email}
+                </span>
+                <div className="flex flex-row justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    Preferred Language: English
+                  </span>
+                  <span className="text-sm text-green-600">
+                    Involvement: High
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Home Exercise Program card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm font-semibold text-gray-900">
+                Home Exercise Program
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-col gap-3">
+                {homePrograms.map((hp, idx) => (
+                  <div key={hp.id} className="flex flex-col gap-3">
+                    {idx > 0 && <Separator />}
+                    <div className="flex flex-row justify-between">
+                      <span className="text-sm font-medium text-gray-900">
+                        {hp.name}
+                      </span>
+                      <Badge
+                        variant="default"
+                        className="bg-green-100 text-green-700 hover:bg-green-100"
+                      >
+                        {hp.status}
+                      </Badge>
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      Assigned: {hp.assignedDate}
+                    </span>
+                    <div className="flex flex-row justify-between">
+                      <span className="text-sm text-muted-foreground">
+                        Frequency: {hp.frequency}
+                      </span>
+                      <Badge
+                        variant="default"
+                        className={
+                          hp.compliance === "Good Compliance"
+                            ? "bg-green-100 text-green-700 hover:bg-green-100"
+                            : "bg-yellow-100 text-yellow-800 hover:bg-yellow-100"
+                        }
+                      >
+                        {hp.compliance}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* render_sequence[4]: Referral Information (full-width) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-gray-900">
+              Referral Information
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-row justify-between">
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Referring Provider
+                </span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {referralInfo.referringProvider}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Referral Date
+                </span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {referralInfo.referralDate}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Reason for Referral
+                </span>
+                <span className="text-sm font-semibold text-gray-900">
+                  {referralInfo.reasonForReferral}
+                </span>
+              </div>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-muted-foreground">
+                  Status
+                </span>
+                <Badge
+                  variant="default"
+                  className="bg-green-100 text-green-700 hover:bg-green-100"
+                >
+                  {referralInfo.status}
+                </Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* render_sequence[5]: Documents (full-width) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-gray-900">
+              Documents
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col gap-3">
+              {documents.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="flex flex-row justify-between items-center"
+                >
+                  <div className="flex flex-row items-center gap-2">
+                    <FileText className="w-4 h-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-gray-900">
+                      {doc.name}
+                    </span>
+                  </div>
+                  <span className="text-sm text-muted-foreground">
+                    {doc.uploadDate}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </main>
-
-      {/* Render sequence index 2: actions */}
-      <div className="flex flex-row items-center justify-center gap-3 p-6 border-t border-gray-200 bg-white">
-        <Link href="/patients/PAT-2024-0156/evaluation">
-          <Button>Start Evaluation</Button>
-        </Link>
-        <Link href="/patients/PAT-2024-0156/treatment-plan">
-          <Button variant="secondary">Create Treatment Plan</Button>
-        </Link>
-        <Link href="/patients/PAT-2024-0156/session-note">
-          <Button variant="secondary">Schedule Session</Button>
-        </Link>
-        <Button variant="secondary">Edit Patient</Button>
-        <Button variant="destructive">Initiate Discharge</Button>
-      </div>
     </div>
   )
+}
+
+function getOrdinalSuffix(n: number): string {
+  const s = ["th", "st", "nd", "rd"]
+  const v = n % 100
+  return s[(v - 20) % 10] || s[v] || s[0]
 }
